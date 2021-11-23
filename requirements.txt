@@ -1,0 +1,17 @@
+sklearn
+pandas
+numpy
+pyathena
+matplotlib
+black
+catboost
+cx_Oracle
+numba
+pyarrow
+seaborn
+jenkspy
+scikit-optimize
+MonkeyType
+tqdm
+ConfigParser
+streamlit

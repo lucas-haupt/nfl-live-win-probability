@@ -1,0 +1,11 @@
+/venv
+*.parquet
+*.csv
+/catboost_info
+/notebooks/catboost_info
+src/__pycache__
+*.xlsx
+*.pyc
+*.cbm
+oracle_cfg.txt
+*.DS_Store
