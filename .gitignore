@@ -9,3 +9,5 @@ src/__pycache__
 *.cbm
 oracle_cfg.txt
 *.DS_Store
+*.pptx
+*.png
