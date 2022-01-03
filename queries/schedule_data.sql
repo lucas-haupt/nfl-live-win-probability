@@ -9,3 +9,4 @@ select
     WEEK as "week"
 from CUSTOMER_DATA.cd_football_schedule
 where league_id = 8
+    and season >= 2008

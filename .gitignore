@@ -11,3 +11,5 @@ oracle_cfg.txt
 *.DS_Store
 *.pptx
 *.png
+/.idea
+notebooks/.ipynb_checkpoints

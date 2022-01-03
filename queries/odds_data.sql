@@ -28,7 +28,7 @@ SELECT
 FROM customer_data.cd_gaming_games G
 WHERE G.league_id = 8
     AND G.game_type_id NOT IN (0, 5)
-    AND G.season >= 2010
+    AND G.season >= 2008
     AND G.cur_home_money_line IS NOT NULL
     AND G.scope_id = 1
     AND G.cur_home_money_line != 0
