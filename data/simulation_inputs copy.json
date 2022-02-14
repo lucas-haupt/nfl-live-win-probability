@@ -1,0 +1,162 @@
+[
+    {
+        "team_id": 343,
+        "total_yards_added_offense": 35.395479910613844,
+        "total_yards_added_defense": -3.6049604483997797
+    },
+    {
+        "team_id": 355,
+        "total_yards_added_offense": 23.146992601309442,
+        "total_yards_added_defense": 9.86724320416605
+    },
+    {
+        "team_id": 339,
+        "total_yards_added_offense": 26.76126014354642,
+        "total_yards_added_defense": 27.119881495923174
+    },
+    {
+        "team_id": 356,
+        "total_yards_added_offense": -30.461461016594356,
+        "total_yards_added_defense": 13.11791747701895
+    },
+    {
+        "team_id": 331,
+        "total_yards_added_offense": 35.507838515412686,
+        "total_yards_added_defense": -6.031619023045275
+    },
+    {
+        "team_id": 359,
+        "total_yards_added_offense": 37.67192351161151,
+        "total_yards_added_defense": -6.922863741267022
+    },
+    {
+        "team_id": 362,
+        "total_yards_added_offense": 37.12838897084299,
+        "total_yards_added_defense": -25.6541554964577
+    },
+    {
+        "team_id": 354,
+        "total_yards_added_offense": 34.902808081298346,
+        "total_yards_added_defense": 0.7235385618842578
+    },
+    {
+        "team_id": 324,
+        "total_yards_added_offense": 24.206512203345955,
+        "total_yards_added_defense": -52.88095887575574
+    },
+    {
+        "team_id": 348,
+        "total_yards_added_offense": 26.58275343917252,
+        "total_yards_added_defense": -18.14569853542009
+    },
+    {
+        "team_id": 327,
+        "total_yards_added_offense": 26.690542748468545,
+        "total_yards_added_defense": 2.278455611792141
+    },
+    {
+        "team_id": 341,
+        "total_yards_added_offense": 8.648441493909242,
+        "total_yards_added_defense": -22.42273843495283
+    },
+    {
+        "team_id": 357,
+        "total_yards_added_offense": 32.74617580669823,
+        "total_yards_added_defense": 19.67863420191509
+    },
+    {
+        "team_id": 345,
+        "total_yards_added_offense": -32.4169544477331,
+        "total_yards_added_defense": -24.303014642827254
+    },
+    {
+        "team_id": 350,
+        "total_yards_added_offense": -28.01150677778816,
+        "total_yards_added_defense": -34.67084253483422
+    },
+    {
+        "team_id": 364,
+        "total_yards_added_offense": -54.4623472901734,
+        "total_yards_added_defense": -17.198469399482427
+    },
+    {
+        "team_id": 323,
+        "total_yards_added_offense": -14.853326951464405,
+        "total_yards_added_defense": 19.932983368686042
+    },
+    {
+        "team_id": 352,
+        "total_yards_added_offense": -20.368423028449982,
+        "total_yards_added_defense": 53.596055853048945
+    },
+    {
+        "team_id": 361,
+        "total_yards_added_offense": 8.380252494978064,
+        "total_yards_added_defense": 8.90181427793128
+    },
+    {
+        "team_id": 335,
+        "total_yards_added_offense": 32.85758772987209,
+        "total_yards_added_defense": -11.511283212713924
+    },
+    {
+        "team_id": 363,
+        "total_yards_added_offense": -17.994835966017014,
+        "total_yards_added_defense": 17.912646061091788
+    },
+    {
+        "team_id": 329,
+        "total_yards_added_offense": 1.3085812328772803,
+        "total_yards_added_defense": -16.390650760161833
+    },
+    {
+        "team_id": 338,
+        "total_yards_added_offense": 27.183020155512086,
+        "total_yards_added_defense": 3.5975829004157176
+    },
+    {
+        "team_id": 351,
+        "total_yards_added_offense": -54.26529824539649,
+        "total_yards_added_defense": -1.8848695701138034
+    },
+    {
+        "team_id": 366,
+        "total_yards_added_offense": -5.739466284602032,
+        "total_yards_added_defense": 30.737477044083338
+    },
+    {
+        "team_id": 365,
+        "total_yards_added_offense": -27.00112817092318,
+        "total_yards_added_defense": 18.735101631024698
+    },
+    {
+        "team_id": 334,
+        "total_yards_added_offense": -18.25264734094092,
+        "total_yards_added_defense": 44.16827860795062
+    },
+    {
+        "team_id": 347,
+        "total_yards_added_offense": 20.821103722883308,
+        "total_yards_added_defense": 18.30875010421753
+    },
+    {
+        "team_id": 336,
+        "total_yards_added_offense": -5.607558743406309,
+        "total_yards_added_defense": -10.944750634406141
+    },
+    {
+        "team_id": 325,
+        "total_yards_added_offense": -52.368897585088675,
+        "total_yards_added_defense": 45.22898119998351
+    },
+    {
+        "team_id": 326,
+        "total_yards_added_offense": -27.36355664991883,
+        "total_yards_added_defense": 8.822011279418282
+    },
+    {
+        "team_id": 332,
+        "total_yards_added_offense": -2.650179288909529,
+        "total_yards_added_defense": -2.781089609532677
+    }
+]

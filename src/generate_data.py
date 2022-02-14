@@ -17,7 +17,7 @@ def df_from_oracle(filename="", query_string=""):
             query_string = f.read()
     c = cx_Oracle.connect(
         "LHAUPT",
-        "YmXlrEYbgnGG79947",
+        "GSFkfNoZTKyC23971",
         "exadata2-cluster.stats.com:1521/bladerac_usr.stats.com",
     )
     return pd.read_sql(query_string, con=c)

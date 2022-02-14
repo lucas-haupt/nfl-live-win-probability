@@ -6,7 +6,9 @@ select
     SEASON as "season",
     HOME_TEAM_ABBREV as "home_team_abbrev",
     AWAY_TEAM_ABBREV as "away_team_abbrev",
-    WEEK as "week"
+    WEEK as "week",
+    game_type_id as "game_type_id"
 from CUSTOMER_DATA.cd_football_schedule
 where league_id = 8
     and season >= 2008
+    and game_type_id != 4

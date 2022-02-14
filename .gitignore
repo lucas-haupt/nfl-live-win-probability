@@ -13,3 +13,5 @@ oracle_cfg.txt
 *.png
 /.idea
 notebooks/.ipynb_checkpoints
+*.p
+*.sav
