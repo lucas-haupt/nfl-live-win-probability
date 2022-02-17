@@ -1,12 +1,29 @@
 import numpy as np
 import time
 import pandas as pd
+from functools import wraps
 
 max_home_score = 62
 max_away_score = 59
 n_categories = (max_home_score + 1) * (max_away_score + 1)
 
 
+def fyi(func):
+    # Tells you what function is running, and when it is complete.
+    @wraps(func)
+    def wrapper_decorator(*args, **kwargs):
+        function_name = func.__name__
+        print(f"Running {function_name}... \n")
+        init_time = time.time()
+        value = func(*args, **kwargs)
+        elapsed_time = time.time() - init_time
+        print(f"{function_name} done in {elapsed_time:.0f} sec.")
+        return value
+
+    return wrapper_decorator
+
+
+@fyi
 def get_model_outputs(model, input_data, running_scores):
     start_time = time.time()
     raw_output = model.predict_proba(input_data)
