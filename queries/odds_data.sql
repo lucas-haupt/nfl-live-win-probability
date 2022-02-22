@@ -3,8 +3,10 @@ SELECT
     G.casino_id AS "casino_id",
     G.casino_name AS "casino_name",
     G.status AS "status",
+    g.status_desc AS "status_desc",
     G.season AS "season",
     G.game_type_desc AS "game_type_desc",
+    g.scope_id AS "scope_id",
     G.game_date AS "game_date",
     G.home_team_name || ' ' || home_team_nickname AS "home_team",
     G.away_team_name || ' ' || away_team_nickname AS "away_team",
@@ -33,4 +35,5 @@ WHERE G.league_id = 8
     AND G.scope_id = 1
     AND G.cur_home_money_line != 0
     AND G.cur_away_money_line != 0
-    ORDER BY G.season, G.game_code
+    AND (g.status = 1 OR g.status = 4)
+    ORDER BY G.season, G.game_code, G.status desc
