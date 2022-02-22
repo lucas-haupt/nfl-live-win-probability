@@ -6,6 +6,7 @@ SELECT
     G.vis_team_id AS "away_team_id",
     g.home_score AS "home_final_score",
     g.vis_score AS "away_final_score",
+    g.home_score - g.vis_score AS "final_score_diff",
     CASE WHEN g.home_score > g.vis_score THEN 'W'
         WHEN g.home_score < g.vis_score THEN 'L'
         WHEN g.home_score = g.vis_score THEN 'T' END as "home_team_outcome",
@@ -30,6 +31,13 @@ SELECT
     CASE WHEN E.event_id IN (17, 35, 48, 50) THEN 1
         ELSE 0 END AS "field_goal_attempt",
     CASE WHEN E.off_team_id = G.home_team_id
+        THEN E.off_end_score - E.off_start_score ELSE E.def_end_score - E.def_start_score END AS "home_score_added",
+    CASE WHEN E.off_team_id = G.vis_team_id
+        THEN E.off_end_score - E.off_start_score ELSE E.def_end_score - E.def_start_score END AS "away_score_added",
+    CASE WHEN E.off_team_id = G.home_team_id
+        THEN E.off_start_score - E.def_start_score ELSE E.def_start_score - E.off_start_score END AS "current_score_diff",
+    e.off_start_score + e.def_start_score AS "current_score_total",
+    CASE WHEN E.off_team_id = G.home_team_id
         THEN E.off_start_score ELSE E.def_start_score END AS "home_start_score",
     CASE WHEN E.off_team_id = G.vis_team_id
         THEN E.off_start_score ELSE E.def_start_score END AS "away_start_score",
@@ -49,3 +57,4 @@ FROM customer_data.cd_football_events E
 WHERE G.split_number = 0
     AND g.league_id = 8
     AND g.season >= 2008
+ORDER BY e.game_date, e.game_code, e.nevent
