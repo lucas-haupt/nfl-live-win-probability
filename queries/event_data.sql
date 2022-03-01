@@ -42,6 +42,7 @@ SELECT
     CASE WHEN E.off_team_id = G.vis_team_id
         THEN E.off_start_score ELSE E.def_start_score END AS "away_start_score",
     E.yd_from_goal AS "yd_from_goal",
+    E.yd_gained AS "yards_gained",
     decode(E.from_scrimmage, 'T', 1, 'F', 0) AS "from_scrimmage",
     E.event_name AS "event_name",
     E.event_id AS "event_id",

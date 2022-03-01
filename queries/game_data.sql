@@ -7,12 +7,13 @@ SELECT
     home_team_abbrev AS "home_team_abbrev",
     away_team_abbrev AS "away_team_abbrev",
     week AS "week",
+    game_type_id AS "game_type_id",
     home_score AS "home_score",
     away_score AS "away_score",
     status AS "status",
     CASE status WHEN 'Final' THEN 11
         WHEN 'Pre-Game' THEN 1 END AS "game_state_id"
-FROM customer_data.cd_football_schedule
+FROM customer_data.cd_football_schedule s
 WHERE league_id = 8
     AND season >=2008
     AND status IN ('Final', 'Pre-Game')
