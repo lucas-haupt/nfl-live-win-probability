@@ -34,12 +34,16 @@ st.set_page_config(
     layout="wide",
     # initial_sidebar_state="expanded",
 )
-st.title("Stats Perform 4th Down Bot")
+st.title("Stats Perform Football Predictions")
 st.write("by Lucas Haupt and Evan Boyd")
 
 
 def ordinaltg(n):
     return n.replace({1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th"})
+
+
+def convert_to_dataframe(df):
+    return pd.DataFrame(df)
 
 
 @st.cache
@@ -192,14 +196,28 @@ def load_predictions(cache=True):
     game_df = get_game_data(cache=cache)
     # print(game_df.head())
     prior_df = pd.read_csv(os.path.join(data_dir, "game_priors.csv"))
+    odds_df = pd.read_parquet(os.path.join(data_dir, "odds_data.parquet"))
+    odds_df = odds_df.drop_duplicates("game_code")
     full_df = (
-        events_df.merge(prior_df, on="game_code")
-        .merge(game_df, on="game_code", suffixes=["", "_y"])
-        .pipe(add_timeouts_remaining)
-    ).sort_values(["game_date", "nevent"], ascending=[False, True])
+        (
+            events_df.merge(prior_df, on="game_code")
+            .merge(game_df, on="game_code", suffixes=["", "_y"])
+            .merge(odds_df, on="game_code", how="left", suffixes=["", "_y"])
+            .pipe(add_timeouts_remaining)
+        )
+        .sort_values(["game_date", "nevent"], ascending=[False, True])
+        .reset_index()
+    )
     full_df = full_df[(full_df["season"] == 2021)][1:1000]
 
-    input_names = [
+    clf = pickle.load(open(os.path.join("models/game_score_new_4.sav"), "rb"))
+    rf = pickle.load(
+        open(
+            os.path.join("models/game_score_random_forest_100_10_vegas_spread.p"), "rb"
+        )
+    )
+    rf.verbose = 0
+    input_names_mlp = [
         "prior_home",
         "prior_away",
         "home_team_has_ball",
@@ -220,28 +238,24 @@ def load_predictions(cache=True):
         "home_timeouts_remaining",
         "away_timeouts_remaining",
     ]
+    input_names_rf = rf.feature_names_in_.tolist()
 
-    full_df = full_df[full_df[input_names].notna().all(axis=1)]
+    full_df = full_df[full_df[input_names_mlp].notna().all(axis=1)]
     full_df = full_df.pipe(add_game_info).pipe(add_play_description)
     full_df = full_df.sort_values(["game_date", "nevent"], ascending=[False, True])
     # print(full_df.head())
     # fourth_downs_only = full_df.loc[full_df.down == 4]
-    clf = pickle.load(open(os.path.join("models/game_score_new_4.sav"), "rb"))
-    rf = pickle.load(
-        open(os.path.join("models/game_score_random_forest_100_10.p"), "rb")
-    )
-    rf.verbose = 0
     # breakpoint()
     example_input = full_df
     example_running_score = example_input[
         ["home_start_score", "away_start_score"]
     ].values
-    example_input_go_for_it = deepcopy(example_input[input_names])
-    example_input_go_for_it_rf = deepcopy(example_input[input_names])
-    example_input_punt = deepcopy(example_input[input_names])
-    example_input_punt_rf = deepcopy(example_input[input_names])
-    example_input_field_goal = deepcopy(example_input[input_names])
-    example_input_field_goal_rf = deepcopy(example_input[input_names])
+    example_input_go_for_it = deepcopy(example_input[input_names_mlp])
+    example_input_go_for_it_rf = deepcopy(example_input[input_names_rf])
+    example_input_punt = deepcopy(example_input[input_names_mlp])
+    example_input_punt_rf = deepcopy(example_input[input_names_rf])
+    example_input_field_goal = deepcopy(example_input[input_names_mlp])
+    example_input_field_goal_rf = deepcopy(example_input[input_names_rf])
     # print(example_input_go_for_it)
     example_input_go_for_it["punt"] = 0
     example_input_go_for_it["field_goal_attempt"] = 0
@@ -277,88 +291,105 @@ def load_predictions(cache=True):
         rf, example_input_field_goal_rf, example_running_score
     )
     example_output_original = get_model_outputs(
-        clf, example_input[input_names], example_running_score
+        clf, example_input[input_names_mlp], example_running_score
     )
     example_output_original_rf = get_model_outputs(
-        rf, example_input[input_names], example_running_score
+        rf, example_input[input_names_rf], example_running_score
     )
+    # breakpoint()
     example_input[
         [
             "xhome_win_mlp",
             "xdraw_mlp",
             "xaway_win_mlp",
         ]
-    ] = example_output_original["ft_outcome"]
+    ] = pd.DataFrame(example_output_original["ft_outcome"])
     example_input[
         [
             "xhome_win_rf",
             "xdraw_rf",
             "xaway_win_rf",
         ]
-    ] = example_output_original_rf["ft_outcome"]
+    ] = pd.DataFrame(example_output_original_rf["ft_outcome"])
     example_input[
         [
             "xhome_win_go_for_it_mlp",
             "xdraw_go_for_it_mlp",
             "xaway_win_go_for_it_mlp",
         ]
-    ] = example_output_go_for_it["ft_outcome"]
+    ] = pd.DataFrame(example_output_go_for_it["ft_outcome"])
     example_input[
         [
             "xhome_win_punt_mlp",
             "xdraw_punt_mlp",
             "xaway_win_punt_mlp",
         ]
-    ] = example_output_punt["ft_outcome"]
+    ] = pd.DataFrame(example_output_punt["ft_outcome"])
     example_input[
         [
             "xhome_win_field_goal_mlp",
             "xdraw_field_goal_mlp",
             "xaway_win_field_goal_mlp",
         ]
-    ] = example_output_field_goal["ft_outcome"]
+    ] = pd.DataFrame(example_output_field_goal["ft_outcome"])
     example_input[
         [
             "xhome_win_go_for_it_rf",
             "xdraw_go_for_it_rf",
             "xaway_win_go_for_it_rf",
         ]
-    ] = example_output_go_for_it_rf["ft_outcome"]
+    ] = pd.DataFrame(example_output_go_for_it_rf["ft_outcome"])
     example_input[
         [
             "xhome_win_punt_rf",
             "xdraw_punt_rf",
             "xaway_win_punt_rf",
         ]
-    ] = example_output_punt_rf["ft_outcome"]
+    ] = pd.DataFrame(example_output_punt_rf["ft_outcome"])
     example_input[
         [
             "xhome_win_field_goal_rf",
             "xdraw_field_goal_rf",
             "xaway_win_field_goal_rf",
         ]
-    ] = example_output_field_goal_rf["ft_outcome"]
+    ] = pd.DataFrame(example_output_field_goal_rf["ft_outcome"])
 
-    example_input[home_score_cols_go_for_it] = example_output_go_for_it["home_score"]
-    example_input[away_score_cols_go_for_it] = example_output_go_for_it["away_score"]
-    example_input[home_score_cols_go_for_it_rf] = example_output_go_for_it_rf[
-        "home_score"
-    ]
-    example_input[away_score_cols_go_for_it_rf] = example_output_go_for_it_rf[
-        "away_score"
-    ]
-    example_input[home_score_cols_punt] = example_output_punt["home_score"]
-    example_input[away_score_cols_punt] = example_output_punt["away_score"]
-    example_input[home_score_cols_punt_rf] = example_output_punt_rf["home_score"]
-    example_input[away_score_cols_punt_rf] = example_output_punt_rf["away_score"]
-    example_input[home_score_cols_field_goal] = example_output_field_goal["home_score"]
-    example_input[away_score_cols_field_goal] = example_output_field_goal["away_score"]
-    example_input[home_score_cols_field_goal_rf] = example_output_field_goal_rf[
-        "home_score"
-    ]
-    example_input[away_score_cols_field_goal_rf] = example_output_field_goal_rf[
-        "away_score"
-    ]
+    example_input[home_score_cols_go_for_it] = pd.DataFrame(
+        example_output_go_for_it["home_score"]
+    )
+    example_input[away_score_cols_go_for_it] = pd.DataFrame(
+        example_output_go_for_it["away_score"]
+    )
+    example_input[home_score_cols_go_for_it_rf] = pd.DataFrame(
+        example_output_go_for_it_rf["home_score"]
+    )
+    example_input[away_score_cols_go_for_it_rf] = pd.DataFrame(
+        example_output_go_for_it_rf["away_score"]
+    )
+    example_input[home_score_cols_punt] = pd.DataFrame(
+        example_output_punt["home_score"]
+    )
+    example_input[away_score_cols_punt] = pd.DataFrame(
+        example_output_punt["away_score"]
+    )
+    example_input[home_score_cols_punt_rf] = pd.DataFrame(
+        example_output_punt_rf["home_score"]
+    )
+    example_input[away_score_cols_punt_rf] = pd.DataFrame(
+        example_output_punt_rf["away_score"]
+    )
+    example_input[home_score_cols_field_goal] = pd.DataFrame(
+        example_output_field_goal["home_score"]
+    )
+    example_input[away_score_cols_field_goal] = pd.DataFrame(
+        example_output_field_goal["away_score"]
+    )
+    example_input[home_score_cols_field_goal_rf] = pd.DataFrame(
+        example_output_field_goal_rf["home_score"]
+    )
+    example_input[away_score_cols_field_goal_rf] = pd.DataFrame(
+        example_output_field_goal_rf["away_score"]
+    )
 
     return (
         full_df,
@@ -369,7 +400,8 @@ def load_predictions(cache=True):
         example_output_go_for_it_rf,
         example_output_punt_rf,
         example_output_field_goal_rf,
-        input_names,
+        input_names_mlp,
+        input_names_rf,
     )
 
 
@@ -382,8 +414,10 @@ def load_predictions(cache=True):
     example_output_go_for_it_rf,
     example_output_punt_rf,
     example_output_field_goal_rf,
-    input_names,
+    input_names_mlp,
+    input_names_rf,
 ) = load_predictions()
+full_df.to_csv("full_df.csv")
 if chart_select_box == "4th Down Bot":
     games = full_df["game_info"].drop_duplicates()
     game_selection = st.selectbox("Pick a Game", games)
@@ -485,7 +519,8 @@ if chart_select_box == "4th Down Bot":
 
     MODEL_TYPE_SELECT = ["MLP", "RF"]
     model_type_selection = st.selectbox("Model", MODEL_TYPE_SELECT)
-    print(play_example[input_names].values.tolist())
+    print(play_example[input_names_rf].values.tolist())
+    print(play_example[input_names_rf])
     if model_type_selection == "MLP":
         # print(print_scores)
         st.dataframe(
@@ -529,14 +564,22 @@ elif chart_select_box == "Games":
         "home_timeouts_remaining",
         "away_timeouts_remaining",
     ]
-    v = pd.array(game_df["quarter"])
-    ticks_idx = [0] + list(np.where(v[1:] != v[:-1])[0] + 2)
+    v = pd.DataFrame(game_df[["quarter", "nevent"]]).reset_index(drop=True)
+    print(v)
+    # breakpoint()
+    mask_ticks = v["quarter"][1:].reset_index(drop=True) == v["quarter"][
+        :-1
+    ].reset_index(drop=True)
+    print(mask_ticks)
+    # breakpoint()
+    ticks_idx = [min(v["nevent"])] + list(v[:-1][~mask_ticks]["nevent"] + 1)
     if len(ticks_idx) == 4:
         ticks_values = [1, 2, 3, 4]
     else:
         ticks_values = [1, 2, 3, 4, "OT"]
 
-    # print(ticks_values)
+    print("ticks_values: ", ticks_values)
+    print("ticks_idx: ", ticks_idx)
 
     fig = go.Figure()
     game_df["xhome_win_mlp_no_tie"] = game_df["xhome_win_mlp"] / (
