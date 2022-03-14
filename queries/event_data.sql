@@ -10,6 +10,15 @@ SELECT
     CASE WHEN g.home_score > g.vis_score THEN 'W'
         WHEN g.home_score < g.vis_score THEN 'L'
         WHEN g.home_score = g.vis_score THEN 'T' END as "home_team_outcome",
+    CASE WHEN g.home_score > g.vis_score THEN 1
+        WHEN g.home_score < g.vis_score THEN 0
+        WHEN g.home_score = g.vis_score THEN 0 END as "home_team_win",
+    CASE WHEN g.home_score > g.vis_score THEN 0
+        WHEN g.home_score < g.vis_score THEN 0
+        WHEN g.home_score = g.vis_score THEN 1 END as "draw",
+    CASE WHEN g.home_score > g.vis_score THEN 0
+        WHEN g.home_score < g.vis_score THEN 1
+        WHEN g.home_score = g.vis_score THEN 0 END as "away_team_win",
     E.nevent AS "nevent",
     E.quarter AS "quarter",
     CASE WHEN E.quarter >=5 THEN 1

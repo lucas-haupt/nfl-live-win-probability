@@ -15,3 +15,5 @@ oracle_cfg.txt
 notebooks/.ipynb_checkpoints
 *.p
 *.sav
+data/output_values_test.json
+data/output_values_test - Copy.json
