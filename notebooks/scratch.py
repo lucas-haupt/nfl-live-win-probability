@@ -1,9 +1,12 @@
-def create_train_test_val_df(
-    df,
-    input_names,
-    output_name,
-    mask_train=(event_df.season <= 2019) & (event_df.continuation == 0),
-    mask_test=(event_df.season == 2021) & (event_df.continuation == 0),
-    mask_val=(event_df.season == 2020) & (event_df.continuation == 0),
-):
-    X_train = 0
+full_df["game_info"] = (
+    full_df["home_team"]
+    + " "
+    + full_df["away_team"]
+    + " "
+    + full_df["game_date_x"].apply(lambda x: x.strftime("%Y-%m-%d"))
+    + " "
+    + full_df["season_x"].apply(str)
+    + " ("
+    + (full_df["game_code"]).apply(str)
+    + ")"
+)

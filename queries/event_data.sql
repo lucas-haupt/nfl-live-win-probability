@@ -60,6 +60,8 @@ SELECT
         ELSE E.down END AS "down",
     CASE WHEN E.ytg IS NULL THEN -1 
         ELSE E.ytg END AS "ytg",
+    e.drive_id AS "drive_id",
+    e.drive_start AS "drive_start",
     E.play_start_time AS "play_start_time"
 FROM customer_data.cd_football_events E
     LEFT JOIN customer_data.cd_football_game G
