@@ -29,6 +29,8 @@ SELECT
         THEN G.vis_score - E.off_start_score ELSE G.vis_score - E.def_start_score END AS "away_rest_of_game_score",
     CASE WHEN E.off_team_id = G.home_team_id
         THEN 1 ELSE 0 END AS "home_team_has_ball",
+    e.off_team_id AS "off_team_id",
+    e.def_team_id AS "def_team_id",
     CASE WHEN E.event_id IN (5, 6, 21, 28, 41, 46, 25) THEN 1
         ELSE 0 END AS "kick_off",
     CASE WHEN E.event_id IN (7, 8, 18, 24) THEN 1
