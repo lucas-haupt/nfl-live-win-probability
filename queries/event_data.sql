@@ -11,13 +11,13 @@ SELECT
     g.home_score AS "home_final_score",
     g.vis_score AS "away_final_score",
     g.home_score - g.vis_score AS "final_score_diff",
-    CASE when G.quarters > 5 THEN 0
+    CASE when G.quarters > 4 THEN 0
         ELSE g.home_score - g.vis_score END AS "end_of_regulation_score_diff",
     CASE WHEN E.off_team_id = G.home_team_id
         THEN G.home_score - E.off_start_score ELSE G.home_score - E.def_start_score END AS "home_rest_of_game_score",
     CASE WHEN E.off_team_id = G.vis_team_id
         THEN G.vis_score - E.off_start_score ELSE G.vis_score - E.def_start_score END AS "away_rest_of_game_score",
-    CASE when G.quarters > 5 THEN (CASE WHEN E.off_team_id = G.home_team_id THEN 1 ELSE -1 END) * (E.off_start_score - E.def_start_score)
+    CASE when G.quarters > 4 THEN (CASE WHEN E.off_team_id = G.home_team_id THEN 1 ELSE -1 END) * (E.off_start_score - E.def_start_score)
         ELSE (g.home_score - g.vis_score) - (CASE WHEN E.off_team_id = G.home_team_id THEN 1 ELSE -1 END) * (E.off_start_score - E.def_start_score) END AS "end_of_regulation_score_diff_change",
     CASE WHEN E.off_team_id = G.home_team_id
         THEN E.off_end_score - E.off_start_score ELSE E.def_end_score - E.def_start_score END AS "home_score_added",

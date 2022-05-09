@@ -16,3 +16,4 @@ tqdm
 ConfigParser
 streamlit
 deepcopy
+xgboost
