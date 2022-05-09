@@ -2,6 +2,7 @@ import numpy as np
 import time
 import pandas as pd
 from functools import wraps
+import scipy
 
 max_home_score = 62
 max_away_score = 59
@@ -671,6 +672,7 @@ def simulate_season_standing_with_tiebreakers(
         final_list[idx_team]["predicted"]["wins"][rank] = sim_results["p"]
     return final_list
 
+
 """
 This module implements multioutput regression and classification.
 
@@ -697,7 +699,11 @@ from sklearn.base import RegressorMixin, ClassifierMixin, is_classifier
 from sklearn.model_selection import cross_val_predict
 from sklearn.utils.metaestimators import available_if
 from sklearn.utils import check_random_state
-from sklearn.utils.validation import check_is_fitted, has_fit_parameter, _check_fit_params
+from sklearn.utils.validation import (
+    check_is_fitted,
+    has_fit_parameter,
+    _check_fit_params,
+)
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.fixes import delayed
 
@@ -1267,7 +1273,11 @@ class _BaseChain(BaseEstimator, metaclass=ABCMeta):
             if self.cv is not None and chain_idx < len(self.estimators_) - 1:
                 col_idx = X.shape[1] + chain_idx
                 cv_result_proba = cross_val_predict(
-                    self.base_estimator, X_aug[:, :col_idx], y=y, cv=self.cv, method='predict_proba'
+                    self.base_estimator,
+                    X_aug[:, :col_idx],
+                    y=y,
+                    cv=self.cv,
+                    method="predict_proba",
                 )[:, 1]
                 if sp.issparse(X_aug):
                     X_aug[:, col_idx] = np.expand_dims(cv_result_proba, 1)
@@ -1304,7 +1314,7 @@ class _BaseChain(BaseEstimator, metaclass=ABCMeta):
             else:
                 X_aug = np.hstack((X, previous_predictions))
             Y_pred_chain[:, chain_idx] = estimator.predict(X_aug)
-            Y_prob_chain[:, chain_idx] = estimator.predict_proba(X_aug)[:,1]
+            Y_prob_chain[:, chain_idx] = estimator.predict_proba(X_aug)[:, 1]
 
         inv_order = np.empty_like(self.order_)
         inv_order[self.order_] = np.arange(len(self.order_))
@@ -1634,6 +1644,7 @@ class TennisRegressorChain(MetaEstimatorMixin, RegressorMixin, _BaseChain):
     def _more_tags(self):
         return {"multioutput_only": True}
 
+
 class TennisLiveScoreMultiClassifier(MultiOutputClassifier):
     def predict_proba(self, X):
         predict_proba = super().predict_proba(X)
@@ -1677,14 +1688,19 @@ class TennisLiveWinnerClassifierChainEnhanced(TennisClassifierChain):
         for i in third_set_indices:
             predicted_proba[i][match_index] = predicted_proba[i][set_index]
         return predicted_proba
+
+
 def normalize_df(df, anchor_df=None):
     for col in df.columns:
         data = df[col]
         if anchor_df is None:
             df[col] = (data - np.min(data)) / (np.max(data) - np.min(data))
         else:
-            df[col] = (data - np.min(anchor_df[col])) / (np.max(anchor_df[col]) - np.min(anchor_df[col]))
+            df[col] = (data - np.min(anchor_df[col])) / (
+                np.max(anchor_df[col]) - np.min(anchor_df[col])
+            )
     return df
+
 
 def create_train_test_val_df(
     df,
@@ -1693,23 +1709,45 @@ def create_train_test_val_df(
     group_col="game_code",
     mask_test_season=2021,
     mask_val_season=2020,
-    normalize=False
+    normalize=False,
 ):
     mask_train = ~(df.season.isin([mask_test_season, mask_val_season]))
-    mask_test = (df.season == mask_test_season)
-    mask_val = (df.season == mask_val_season)
-    if normalize==False:
+    mask_test = df.season == mask_test_season
+    mask_val = df.season == mask_val_season
+    if normalize == False:
         X_train = df.loc[mask_train, input_names]
         X_test = df.loc[mask_test, input_names]
         X_val = df.loc[mask_val, input_names]
     else:
         X_train = normalize_df(df.loc[mask_train, input_names])
-        X_test = normalize_df(df.loc[mask_test, input_names], df.loc[mask_train, input_names])
-        X_val = normalize_df(df.loc[mask_val, input_names], df.loc[mask_train, input_names])
+        X_test = normalize_df(
+            df.loc[mask_test, input_names], df.loc[mask_train, input_names]
+        )
+        X_val = normalize_df(
+            df.loc[mask_val, input_names], df.loc[mask_train, input_names]
+        )
     y_train = df.loc[mask_train, output_name]
     group_train = df.loc[mask_train, group_col]
     y_test = df.loc[mask_test, output_name]
     group_test = df.loc[mask_test, group_col]
     y_val = df.loc[mask_val, output_name]
     group_val = df.loc[mask_val, group_col]
-    return X_train, y_train, group_train, X_test, y_test, group_test, X_val, y_val, group_val
+    return (
+        X_train,
+        y_train,
+        group_train,
+        X_test,
+        y_test,
+        group_test,
+        X_val,
+        y_val,
+        group_val,
+    )
+
+
+def uniform_distribution(lo, hi):
+    return scipy.stats.uniform(lo, hi - lo)
+
+
+def ProbaScoreProxy(y_true, y_probs, proxied_func, **kwargs):
+    return proxied_func(y_true, y_probs, **kwargs)
