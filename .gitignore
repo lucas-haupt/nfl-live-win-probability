@@ -18,3 +18,4 @@ notebooks/.ipynb_checkpoints
 data/output_values_test.json
 data/output_values_test - Copy.json
 instruction_videos/
+models/Archive.zip
