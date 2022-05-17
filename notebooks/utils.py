@@ -1726,12 +1726,18 @@ def create_train_test_val_df(
         X_val = normalize_df(
             df.loc[mask_val, input_names], df.loc[mask_train, input_names]
         )
-    y_train = df.loc[mask_train, output_name]
-    group_train = df.loc[mask_train, group_col]
-    y_test = df.loc[mask_test, output_name]
-    group_test = df.loc[mask_test, group_col]
-    y_val = df.loc[mask_val, output_name]
-    group_val = df.loc[mask_val, group_col]
+    y_train = df[mask_train][output_name]
+    group_train = df[mask_train][group_col]
+    y_test = df[mask_test][output_name]
+    group_test = df[mask_test][group_col]
+    y_val = df[mask_val][output_name]
+    group_val = df[mask_val][group_col]
+    # y_train = df.loc[mask_train, output_name]
+    # group_train = df.loc[mask_train, group_col]
+    # y_test = df.loc[mask_test, output_name]
+    # group_test = df.loc[mask_test, group_col]
+    # y_val = df.loc[mask_val, output_name]
+    # group_val = df.loc[mask_val, group_col]
     return (
         X_train,
         y_train,
