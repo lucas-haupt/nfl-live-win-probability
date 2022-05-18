@@ -15,5 +15,7 @@ MonkeyType
 tqdm
 ConfigParser
 streamlit
-deepcopy
 xgboost
+beepy
+pydot
+statsmodels
