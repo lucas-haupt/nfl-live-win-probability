@@ -2,6 +2,8 @@ SELECT
     E.game_code AS "game_code",
     E.game_date AS "game_date",
     E.season AS "season",
+    G.game_type_id AS "game_type_id",
+    G.game_type_desc AS "game_type_desc",
     G.home_team_id AS "home_team_id",
     g.home_team_name || ' ' || g.home_team_nickname AS "home_team",
     g.home_team_abbrev AS "home_team_abbrev",
