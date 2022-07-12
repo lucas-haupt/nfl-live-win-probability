@@ -2,12 +2,14 @@ from asyncio import events
 from copy import deepcopy
 from functools import cache
 from operator import index
+from pyexpat import model
 from sklearn import model_selection
 import streamlit as st
 import pandas as pd
 import pickle
 import os
-from notebooks.utils import get_model_outputs
+from scipy.linalg import lstsq
+from notebooks.utils import get_model_outputs, normalize_df
 from src.utils.utils import fyi
 import numpy as np
 import datetime
@@ -22,10 +24,7 @@ from src.utils.generate_data import (
 
 data_dir = "data/"
 apptitle = "Stats Perform Football Predictions"
-CHARTS = [
-    "4th Down Bot",
-    "Games",
-]
+CHARTS = ["Games", "4th Down Bot Situation", "LWP Slider"]
 
 
 st.set_page_config(
@@ -35,15 +34,113 @@ st.set_page_config(
     # initial_sidebar_state="expanded",
 )
 st.title("Stats Perform Football Predictions")
-st.write("by Lucas Haupt and Evan Boyd")
+# st.write("by Lucas Haupt and Evan Boyd")
 
 
+# @st.cache
+# def load_models():
+#     scrimmage_plays_we_want = [1, 2, 3, 4, 7, 9, 14, 17, 18, 35]
+#     # search_mlp_play_outcome = pickle.load(open("models/search_mlp_play_outcome.p", "rb"))
+#     search_rf_play_outcome = pickle.load(open("models/search_rf_play_outcome.p", "rb"))
+#     search_rf_drive_outcome = pickle.load(
+#         open("models/search_rf_drive_outcome.p", "rb")
+#     )
+#     search_mlp_play_outcome_normalized_new_hpo = pickle.load(
+#         open("models/search_mlp_play_outcome_normalized_new_hpo.p", "rb")
+#     )
+#     search_mlp_score_diff_clipped_rf_drive_preds = pickle.load(
+#         open("models/search_mlp_score_diff_clipped_rf_drive_preds.p", "rb")
+#     )
+#     search_mlp_total_score = pickle.load(open("models/search_mlp_total_score.p", "rb"))
+#     input_names_play_and_drive_preds = search_rf_play_outcome.feature_names_in_
+#     input_names_score_diff_pred = (
+#         search_mlp_score_diff_clipped_rf_drive_preds.feature_names_in_
+#     )
+#     search_rf_play_class_names = [
+#         "search_rf_play_" + x for x in search_rf_play_outcome.classes_
+#     ]
+#     search_mlp_play_class_names = [
+#         "search_mlp_play_" + x for x in search_rf_play_outcome.classes_
+#     ]
+#     search_rf_drive_class_names = [
+#         "search_rf_drive_" + x for x in search_rf_drive_outcome.classes_
+#     ]
+
+#     search_rf_play_class_names_home = [x + "_home" for x in search_rf_play_class_names]
+#     search_rf_play_class_names_away = [x + "_away" for x in search_rf_play_class_names]
+#     search_rf_drive_class_names_home = [
+#         x + "_home" for x in search_rf_drive_class_names
+#     ]
+#     search_rf_drive_class_names_away = [
+#         x + "_away" for x in search_rf_drive_class_names
+#     ]
+#     return (
+#         search_rf_play_outcome,
+#         search_rf_drive_outcome,
+#         search_rf_play_class_names,
+#         search_rf_drive_class_names,
+#         search_mlp_score_diff_clipped_rf_drive_preds,
+#         scrimmage_plays_we_want,
+#         search_mlp_play_outcome_normalized_new_hpo,
+#         search_mlp_total_score,
+#         input_names_play_and_drive_preds,
+#         input_names_score_diff_pred,
+#         search_mlp_play_class_names,
+#         search_rf_play_class_names_home,
+#         search_rf_play_class_names_away,
+#         search_rf_drive_class_names_home,
+#         search_rf_drive_class_names_away,
+#     )
+
+
+# (
+#     search_rf_play_outcome,
+#     search_rf_drive_outcome,
+#     search_rf_play_class_names,
+#     search_rf_drive_class_names,
+#     search_mlp_score_diff_clipped_rf_drive_preds,
+#     scrimmage_plays_we_want,
+#     search_mlp_play_outcome_normalized_new_hpo,
+#     search_mlp_total_score,
+#     input_names_play_and_drive_preds,
+#     input_names_score_diff_pred,
+#     search_mlp_play_class_names,
+#     search_rf_play_class_names_home,
+#     search_rf_play_class_names_away,
+#     search_rf_drive_class_names_home,
+#     search_rf_drive_class_names_away,
+# ) = load_models()
+# home_score_cols_go_for_it = ["home_score_go_for_it_" + str(x) for x in list(range(63))]
+# away_score_cols_go_for_it = ["away_score_go_for_it_" + str(x) for x in list(range(60))]
+# home_score_cols_punt = ["home_score_punt_" + str(x) for x in list(range(63))]
+# away_score_cols_punt = ["away_score_punt_" + str(x) for x in list(range(60))]
+# home_score_cols_field_goal = [
+#     "home_score_field_goal_" + str(x) for x in list(range(63))
+# ]
+# away_score_cols_field_goal = [
+#     "away_score_field_goal_" + str(x) for x in list(range(60))
+# ]
+# home_score_cols_go_for_it_rf = [
+#     "home_score_go_for_it_rf_" + str(x) for x in list(range(63))
+# ]
+# away_score_cols_go_for_it_rf = [
+#     "away_score_go_for_it_rf_" + str(x) for x in list(range(60))
+# ]
+# home_score_cols_punt_rf = ["home_score_punt_rf_" + str(x) for x in list(range(63))]
+# away_score_cols_punt_rf = ["away_score_punt_rf_" + str(x) for x in list(range(60))]
+# home_score_cols_field_goal_rf = [
+#     "home_score_field_goal_rf_" + str(x) for x in list(range(63))
+# ]
+# away_score_cols_field_goal_rf = [
+#     "away_score_field_goal_rf_" + str(x) for x in list(range(60))
+# ]
+@st.cache
 def ordinaltg(n):
     return n.replace({1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th"})
 
 
-def convert_to_dataframe(df):
-    return pd.DataFrame(df)
+# def convert_to_dataframe(df):
+#     return pd.DataFrame(df)
 
 
 @st.cache
@@ -68,23 +165,12 @@ def add_timeouts_remaining(df):
     df["away_timeouts_remaining"] = np.clip(
         3 - df.groupby(["game_code", "half"])["away_timeout"].cumsum(), 0, 3
     )
-    return df
-
-
-@st.cache
-def add_game_info(df):
-    df["game_info"] = (
-        df["away_team_abbrev"]
-        + " at "
-        + df["home_team_abbrev"]
-        + " Week "
-        + df["week"].apply(str)
-        + " "
-        + df["season"].apply(str)
-        + " ("
-        + (df["game_code"]).apply(str)
-        + ")"
+    df["time_left_in_game"] = np.where(
+        df["quarter"] <= 4,
+        df["play_start_time"] + (4 - df["quarter"]) * 900,
+        df["play_start_time"],
     )
+
     return df
 
 
@@ -92,10 +178,10 @@ def add_game_info(df):
 def add_play_description(df):
     df["absolute_score_diff"] = abs(df["home_start_score"] - df["away_start_score"])
 
-    df["minutes"] = (df["play_start_time"] // 60).apply(int)
-    df["seconds"] = (df["play_start_time"] - (df["play_start_time"] // 60) * 60).apply(
-        int
-    )
+    df["minutes"] = (df["play_start_time"].fillna(0) // 60).apply(int)
+    df["seconds"] = (
+        df["play_start_time"].fillna(0) - (df["play_start_time"].fillna(0) // 60) * 60
+    ).apply(int)
     df["seconds_str"] = np.where(
         df["seconds"] >= 10, df["seconds"].apply(str), "0" + df["seconds"].apply(str)
     )
@@ -162,395 +248,909 @@ def add_play_description(df):
 
     return df
 
-
 chart_select_box = st.selectbox("Chart", CHARTS)
-home_score_cols_go_for_it = ["home_score_go_for_it_" + str(x) for x in list(range(63))]
-away_score_cols_go_for_it = ["away_score_go_for_it_" + str(x) for x in list(range(60))]
-home_score_cols_punt = ["home_score_punt_" + str(x) for x in list(range(63))]
-away_score_cols_punt = ["away_score_punt_" + str(x) for x in list(range(60))]
-home_score_cols_field_goal = [
-    "home_score_field_goal_" + str(x) for x in list(range(63))
-]
-away_score_cols_field_goal = [
-    "away_score_field_goal_" + str(x) for x in list(range(60))
-]
-home_score_cols_go_for_it_rf = [
-    "home_score_go_for_it_rf_" + str(x) for x in list(range(63))
-]
-away_score_cols_go_for_it_rf = [
-    "away_score_go_for_it_rf_" + str(x) for x in list(range(60))
-]
-home_score_cols_punt_rf = ["home_score_punt_rf_" + str(x) for x in list(range(63))]
-away_score_cols_punt_rf = ["away_score_punt_rf_" + str(x) for x in list(range(60))]
-home_score_cols_field_goal_rf = [
-    "home_score_field_goal_rf_" + str(x) for x in list(range(63))
-]
-away_score_cols_field_goal_rf = [
-    "away_score_field_goal_rf_" + str(x) for x in list(range(60))
-]
+
+@st.cache
+def get_fourth_down_predictions(df):
+    scrimmage_plays_we_want = [1, 2, 3, 4, 7, 9, 14, 17, 18, 35]
+    # search_mlp_play_outcome = pickle.load(open("models/search_mlp_play_outcome.p", "rb"))
+    search_rf_play_outcome = pickle.load(open("models/search_rf_play_outcome.p", "rb"))
+    search_rf_drive_outcome = pickle.load(
+        open("models/search_rf_drive_outcome.p", "rb")
+    )
+    search_mlp_play_outcome_normalized_new_hpo = pickle.load(
+        open("models/search_mlp_play_outcome_normalized_new_hpo.p", "rb")
+    )
+    search_mlp_score_diff_clipped_rf_drive_preds = pickle.load(
+        open("models/search_mlp_score_diff_clipped_rf_drive_preds.p", "rb")
+    )
+    search_mlp_total_score = pickle.load(open("models/search_mlp_total_score.p", "rb"))
+    input_names_play_and_drive_preds = search_rf_play_outcome.feature_names_in_
+    input_names_score_diff_pred = (
+        search_mlp_score_diff_clipped_rf_drive_preds.feature_names_in_
+    )
+    search_rf_play_class_names = [
+        "search_rf_play_" + x for x in search_rf_play_outcome.classes_
+    ]
+    search_mlp_play_class_names = [
+        "search_mlp_play_" + x for x in search_rf_play_outcome.classes_
+    ]
+    search_rf_drive_class_names = [
+        "search_rf_drive_" + x for x in search_rf_drive_outcome.classes_
+    ]
+
+    search_rf_play_class_names_home = [x + "_home" for x in search_rf_play_class_names]
+    search_rf_play_class_names_away = [x + "_away" for x in search_rf_play_class_names]
+    search_rf_drive_class_names_home = [
+        x + "_home" for x in search_rf_drive_class_names
+    ]
+    search_rf_drive_class_names_away = [
+        x + "_away" for x in search_rf_drive_class_names
+    ]
+    fourth_down_data = df[df["down"] == 4]
+    mlp_punt_field_position = pickle.load(
+        open("models/mlp_punt_field_position.p", "rb")
+    )
+    logit_field_goal_made = pickle.load(open("models/logit_field_goal_made.p", "rb"))
+    mlp_go_for_it_success_next_yds = pickle.load(
+        open("models/mlp_go_for_it_success_next_yds.p", "rb")
+    )
+    fourth_down_data["home_vegas_score_pred"] = (
+        fourth_down_data["cur_over_under"] / 2 - 0.5 * fourth_down_data["cur_spread"]
+    )
+    fourth_down_data["away_vegas_score_pred"] = (
+        fourth_down_data["cur_over_under"] / 2 + 0.5 * fourth_down_data["cur_spread"]
+    )
+    fourth_down_data["kicking_vegas_pred"] = np.where(
+        fourth_down_data["home_team_has_ball"] == 1,
+        fourth_down_data["home_vegas_score_pred"],
+        fourth_down_data["away_vegas_score_pred"],
+    )
+    fourth_down_data["receiving_vegas_pred"] = np.where(
+        fourth_down_data["home_team_has_ball"] == 0,
+        fourth_down_data["home_vegas_score_pred"],
+        fourth_down_data["away_vegas_score_pred"],
+    )
+    fourth_down_data[
+        "xnext_field_position_if_first_down"
+    ] = mlp_go_for_it_success_next_yds.predict(
+        fourth_down_data[mlp_go_for_it_success_next_yds.feature_names_in_]
+    )
+
+    fourth_down_go_for_it_success_data = deepcopy(fourth_down_data)
+    fourth_down_go_for_it_success_data["current_score_diff"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        (2 * fourth_down_data["home_team_has_ball"] - 1) * 6
+        + fourth_down_data["current_score_diff"],
+        fourth_down_data["current_score_diff"],
+    )
+    fourth_down_go_for_it_success_data["current_score_total"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        6 + fourth_down_data["current_score_total"],
+        fourth_down_data["current_score_total"],
+    )
+    fourth_down_go_for_it_success_data["ytg"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        -1,
+        np.where(
+            fourth_down_data["xnext_field_position_if_first_down"] >= 10,
+            10,
+            fourth_down_data["xnext_field_position_if_first_down"].apply(int),
+        ),
+    )
+
+    fourth_down_go_for_it_success_data["yd_from_goal"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        -1,
+        fourth_down_data["xnext_field_position_if_first_down"]
+        .fillna(fourth_down_data["yd_from_goal"] - fourth_down_data["ytg"])
+        .apply(int),
+    )
+    fourth_down_go_for_it_success_data["down"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        0,
+        1,
+    )
+    fourth_down_go_for_it_success_data["point_after_play"] = np.where(
+        (fourth_down_data["ytg"] >= fourth_down_data["yd_from_goal"])
+        | (fourth_down_data["xnext_field_position_if_first_down"] <= 0.5),
+        1,
+        0,
+    )
+    fourth_down_go_for_it_success_data[search_rf_play_class_names] = pd.DataFrame(
+        search_rf_play_outcome.predict_proba(
+            fourth_down_go_for_it_success_data[
+                fourth_down_go_for_it_success_data.down != 0
+            ][input_names_play_and_drive_preds]
+        ),
+        fourth_down_go_for_it_success_data[
+            fourth_down_go_for_it_success_data.down != 0
+        ].index,
+    )
+    fourth_down_go_for_it_success_data[
+        search_rf_play_class_names
+    ] = fourth_down_go_for_it_success_data[search_rf_play_class_names].fillna(0)
+    fourth_down_go_for_it_success_data[search_rf_drive_class_names] = pd.DataFrame(
+        search_rf_drive_outcome.predict_proba(
+            fourth_down_go_for_it_success_data[
+                fourth_down_go_for_it_success_data.down != 0
+            ][input_names_play_and_drive_preds]
+        ),
+        fourth_down_go_for_it_success_data[
+            fourth_down_go_for_it_success_data.down != 0
+        ].index,
+    )
+    fourth_down_go_for_it_success_data[
+        search_rf_drive_class_names
+    ] = fourth_down_go_for_it_success_data[search_rf_drive_class_names].fillna(0)
+    fourth_down_go_for_it_success_data[
+        search_rf_play_class_names_home
+    ] = fourth_down_go_for_it_success_data[search_rf_play_class_names].where(
+        fourth_down_go_for_it_success_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_go_for_it_success_data[
+        search_rf_play_class_names_away
+    ] = fourth_down_go_for_it_success_data[search_rf_play_class_names].where(
+        fourth_down_go_for_it_success_data["home_team_has_ball"] == 0, 0
+    )
+    fourth_down_go_for_it_success_data[
+        search_rf_drive_class_names_home
+    ] = fourth_down_go_for_it_success_data[search_rf_drive_class_names].where(
+        fourth_down_go_for_it_success_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_go_for_it_success_data[
+        search_rf_drive_class_names_away
+    ] = fourth_down_go_for_it_success_data[search_rf_drive_class_names].where(
+        fourth_down_go_for_it_success_data["home_team_has_ball"] == 0, 0
+    )
+    fourth_down_go_for_it_fail_data = deepcopy(fourth_down_data)
+    fourth_down_go_for_it_fail_data["event_name"].value_counts()
+
+    fourth_down_go_for_it_fail_data["yd_from_goal"] = (
+        100 - fourth_down_data["yd_from_goal"]
+    )
+    fourth_down_go_for_it_fail_data["ytg"] = np.where(
+        fourth_down_go_for_it_fail_data["yd_from_goal"] <= 10,
+        fourth_down_go_for_it_fail_data["yd_from_goal"],
+        10,
+    )
+    fourth_down_go_for_it_fail_data["down"] = 1
+    fourth_down_go_for_it_fail_data["home_team_has_ball"] = (
+        1 - fourth_down_data["home_team_has_ball"]
+    )
+
+    # fourth_down_go_for_it_fail_data[search_rf_play_class_names] = np.where(
+    #     (fourth_down_data["ytg"]>=fourth_down_data["yd_from_goal"])| (fourth_down_data["xnext_field_position_if_first_down"] <=.5),
+    #     search_rf_play_outcome.predict_proba(fourth_down_go_for_it_fail_data[input_names_play_and_drive_preds]), [0, 0, 0, 0, 0, 0, 0]
+    # )
+    fourth_down_go_for_it_fail_data[search_rf_play_class_names] = pd.DataFrame(
+        search_rf_play_outcome.predict_proba(
+            fourth_down_go_for_it_fail_data[fourth_down_go_for_it_fail_data.down != 0][
+                input_names_play_and_drive_preds
+            ]
+        ),
+        fourth_down_go_for_it_fail_data[
+            fourth_down_go_for_it_fail_data.down != 0
+        ].index,
+    )
+    fourth_down_go_for_it_fail_data[
+        search_rf_play_class_names
+    ] = fourth_down_go_for_it_fail_data[search_rf_play_class_names].fillna(0)
+    fourth_down_go_for_it_fail_data[
+        search_rf_play_class_names_home
+    ] = fourth_down_go_for_it_fail_data[search_rf_play_class_names].where(
+        fourth_down_go_for_it_fail_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_go_for_it_fail_data[
+        search_rf_play_class_names_away
+    ] = fourth_down_go_for_it_fail_data[search_rf_play_class_names].where(
+        fourth_down_go_for_it_fail_data["home_team_has_ball"] == 0, 0
+    )
+
+    fourth_down_go_for_it_fail_data[search_rf_drive_class_names] = pd.DataFrame(
+        search_rf_drive_outcome.predict_proba(
+            fourth_down_go_for_it_fail_data[fourth_down_go_for_it_fail_data.down != 0][
+                input_names_play_and_drive_preds
+            ]
+        ),
+        fourth_down_go_for_it_fail_data[
+            fourth_down_go_for_it_fail_data.down != 0
+        ].index,
+    )
+    fourth_down_go_for_it_fail_data[
+        search_rf_drive_class_names
+    ] = fourth_down_go_for_it_fail_data[search_rf_drive_class_names].fillna(0)
+    fourth_down_go_for_it_fail_data[
+        search_rf_drive_class_names_home
+    ] = fourth_down_go_for_it_fail_data[search_rf_drive_class_names].where(
+        fourth_down_go_for_it_fail_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_go_for_it_fail_data[
+        search_rf_drive_class_names_away
+    ] = fourth_down_go_for_it_fail_data[search_rf_drive_class_names].where(
+        fourth_down_go_for_it_fail_data["home_team_has_ball"] == 0, 0
+    )
+
+    fourth_down_field_goal_success_data = deepcopy(fourth_down_data)
+    fourth_down_field_goal_success_data["event_name"].value_counts()
+
+    fourth_down_field_goal_success_data["current_score_diff"] = (
+        2 * fourth_down_data["home_team_has_ball"] - 1
+    ) * 3 + fourth_down_data["current_score_diff"]
+    fourth_down_field_goal_success_data["current_score_total"] = (
+        3 + fourth_down_data["current_score_total"]
+    )
+    fourth_down_field_goal_success_data["ytg"] = -1
+    fourth_down_field_goal_success_data["yd_from_goal"] = -1
+    fourth_down_field_goal_success_data["down"] = 0
+    fourth_down_field_goal_success_data["home_team_has_ball"] = (
+        1 - fourth_down_data["home_team_has_ball"]
+    )
+    fourth_down_field_goal_success_data["kick_off"] = 1
+    # fourth_down_field_goal_success_data[search_rf_play_class_names] = np.where(
+    #     (fourth_down_data["ytg"]>=fourth_down_data["yd_from_goal"])| (fourth_down_data["xnext_field_position_if_first_down"] <=.5),
+    #     search_rf_play_outcome.predict_proba(fourth_down_field_goal_success_data[input_names_play_and_drive_preds]), [0, 0, 0, 0, 0, 0, 0]
+    # )
+    fourth_down_field_goal_success_data[search_rf_play_class_names_away] = 0
+    fourth_down_field_goal_success_data[search_rf_play_class_names_home] = 0
+    fourth_down_field_goal_success_data[search_rf_drive_class_names_away] = 0
+    fourth_down_field_goal_success_data[search_rf_drive_class_names_home] = 0
+    fourth_down_field_goal_fail_data = deepcopy(fourth_down_data)
+
+    # fourth_down_field_goal_fail_data["yd_from_goal"] = 100 - (fourth_down_data["yd_from_goal"] + 7)
+    fourth_down_field_goal_fail_data["yd_from_goal"] = np.where(
+        fourth_down_data["yd_from_goal"] >= 20,
+        100 - (fourth_down_data["yd_from_goal"] + 7),
+        80,
+    )
+    fourth_down_field_goal_fail_data["ytg"] = np.where(
+        fourth_down_field_goal_fail_data["yd_from_goal"] <= 10,
+        fourth_down_field_goal_fail_data["yd_from_goal"],
+        10,
+    )
+    fourth_down_field_goal_fail_data["down"] = 1
+    fourth_down_field_goal_fail_data["home_team_has_ball"] = (
+        1 - fourth_down_data["home_team_has_ball"]
+    )
+
+    # fourth_down_field_goal_fail_data[search_rf_play_class_names] = np.where(
+    #     (fourth_down_data["ytg"]>=fourth_down_data["yd_from_goal"])| (fourth_down_data["xnext_field_position_if_first_down"] <=.5),
+    #     search_rf_play_outcome.predict_proba(fourth_down_field_goal_fail_data[input_names_play_and_drive_preds]), [0, 0, 0, 0, 0, 0, 0]
+    # )
+    fourth_down_field_goal_fail_data[search_rf_play_class_names] = pd.DataFrame(
+        search_rf_play_outcome.predict_proba(
+            fourth_down_field_goal_fail_data[
+                fourth_down_field_goal_fail_data.down != 0
+            ][input_names_play_and_drive_preds]
+        ),
+        fourth_down_field_goal_fail_data[
+            fourth_down_field_goal_fail_data.down != 0
+        ].index,
+    )
+    fourth_down_field_goal_fail_data[
+        search_rf_play_class_names
+    ] = fourth_down_field_goal_fail_data[search_rf_play_class_names].fillna(0)
+    fourth_down_field_goal_fail_data[
+        search_rf_play_class_names_home
+    ] = fourth_down_field_goal_fail_data[search_rf_play_class_names].where(
+        fourth_down_field_goal_fail_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_field_goal_fail_data[
+        search_rf_play_class_names_away
+    ] = fourth_down_field_goal_fail_data[search_rf_play_class_names].where(
+        fourth_down_field_goal_fail_data["home_team_has_ball"] == 0, 0
+    )
+
+    fourth_down_field_goal_fail_data[search_rf_drive_class_names] = pd.DataFrame(
+        search_rf_drive_outcome.predict_proba(
+            fourth_down_field_goal_fail_data[
+                fourth_down_field_goal_fail_data.down != 0
+            ][input_names_play_and_drive_preds]
+        ),
+        fourth_down_field_goal_fail_data[
+            fourth_down_field_goal_fail_data.down != 0
+        ].index,
+    )
+    fourth_down_field_goal_fail_data[
+        search_rf_drive_class_names
+    ] = fourth_down_field_goal_fail_data[search_rf_drive_class_names].fillna(0)
+    fourth_down_field_goal_fail_data[
+        search_rf_drive_class_names_home
+    ] = fourth_down_field_goal_fail_data[search_rf_drive_class_names].where(
+        fourth_down_field_goal_fail_data["home_team_has_ball"] == 1, 0
+    )
+    fourth_down_field_goal_fail_data[
+        search_rf_drive_class_names_away
+    ] = fourth_down_field_goal_fail_data[search_rf_drive_class_names].where(
+        fourth_down_field_goal_fail_data["home_team_has_ball"] == 0, 0
+    )
+    fourth_down_punt_data = deepcopy(fourth_down_data)
+    punt_prediction_inputs = normalize_df(
+        fourth_down_data[mlp_punt_field_position.feature_names_in_],
+        fourth_down_data[
+            (fourth_down_data["punt"] == 1) & (fourth_down_data["season"] < 2020)
+        ],
+    ).dropna()
+    fourth_down_punt_data["xpunt_opp_field_position"] = mlp_punt_field_position.predict(
+        punt_prediction_inputs
+    )
+
+    fourth_down_punt_data["yd_from_goal"] = fourth_down_punt_data[
+        "xpunt_opp_field_position"
+    ].fillna(80)
+    fourth_down_punt_data["ytg"] = np.where(
+        fourth_down_punt_data["yd_from_goal"] <= 10,
+        fourth_down_punt_data["yd_from_goal"],
+        10,
+    )
+    fourth_down_punt_data["down"] = 1
+    fourth_down_punt_data["home_team_has_ball"] = (
+        1 - fourth_down_data["home_team_has_ball"]
+    )
+
+    # fourth_down_punt_data[search_rf_play_class_names] = np.where(
+    #     (fourth_down_data["ytg"]>=fourth_down_data["yd_from_goal"])| (fourth_down_data["xnext_field_position_if_first_down"] <=.5),
+    #     search_rf_play_outcome.predict_proba(fourth_down_punt_data[input_names_play_and_drive_preds]), [0, 0, 0, 0, 0, 0, 0]
+    # )
+    fourth_down_punt_data[search_rf_play_class_names] = pd.DataFrame(
+        search_rf_play_outcome.predict_proba(
+            fourth_down_punt_data[fourth_down_punt_data.down != 0][
+                input_names_play_and_drive_preds
+            ]
+        ),
+        fourth_down_punt_data[fourth_down_punt_data.down != 0].index,
+    )
+    fourth_down_punt_data[search_rf_play_class_names] = fourth_down_punt_data[
+        search_rf_play_class_names
+    ].fillna(0)
+    fourth_down_punt_data[search_rf_play_class_names_home] = fourth_down_punt_data[
+        search_rf_play_class_names
+    ].where(fourth_down_punt_data["home_team_has_ball"] == 1, 0)
+    fourth_down_punt_data[search_rf_play_class_names_away] = fourth_down_punt_data[
+        search_rf_play_class_names
+    ].where(fourth_down_punt_data["home_team_has_ball"] == 0, 0)
+
+    fourth_down_punt_data[search_rf_drive_class_names] = pd.DataFrame(
+        search_rf_drive_outcome.predict_proba(
+            fourth_down_punt_data[fourth_down_punt_data.down != 0][
+                input_names_play_and_drive_preds
+            ]
+        ),
+        fourth_down_punt_data[fourth_down_punt_data.down != 0].index,
+    )
+    fourth_down_punt_data[search_rf_drive_class_names] = fourth_down_punt_data[
+        search_rf_drive_class_names
+    ].fillna(0)
+    fourth_down_punt_data[search_rf_drive_class_names_home] = fourth_down_punt_data[
+        search_rf_drive_class_names
+    ].where(fourth_down_punt_data["home_team_has_ball"] == 1, 0)
+    fourth_down_punt_data[search_rf_drive_class_names_away] = fourth_down_punt_data[
+        search_rf_drive_class_names
+    ].where(fourth_down_punt_data["home_team_has_ball"] == 0, 0)
+    mask_model = (
+        (df.continuation == 0)
+        & (df[input_names_score_diff_pred].notna().all(axis=1))
+        & ~(df.event_id.isin([12, 57, 58, 13]))
+        & (df["overtime"] == 0)
+    )
+
+    anchor_df = df[mask_model & (df.season < 2020)]
+
+    score_diff_change_list_clipped = list(
+        df.end_of_regulation_score_diff_change_clipped.drop_duplicates().sort_values()
+    )
+    score_diff_clipped_mlp_drive_preds_matrix = pd.DataFrame(
+        np.zeros((len(fourth_down_data), len(score_diff_change_list_clipped))),
+        index=fourth_down_data.index,
+    )
+
+    for column in score_diff_clipped_mlp_drive_preds_matrix.columns:
+        score_diff_clipped_mlp_drive_preds_matrix[column] = (
+            score_diff_change_list_clipped[column]
+            + fourth_down_data["current_score_diff"]
+        )
+
+    normalized_data_dicts = {}
+    predictions_dicts = {}
+    win_prob_dict = {}
+    for outcome in [
+        "fourth_down_go_for_it_success_data",
+        "fourth_down_go_for_it_fail_data",
+        "fourth_down_field_goal_success_data",
+        "fourth_down_field_goal_fail_data",
+        "fourth_down_punt_data",
+    ]:
+        # print(outcome)
+        normalized_data_dicts[outcome + "_normalized"] = normalize_df(
+            eval(outcome)[input_names_score_diff_pred], anchor_df
+        )
+        predictions_dicts[outcome] = pd.DataFrame(
+            search_mlp_score_diff_clipped_rf_drive_preds.predict_proba(
+                normalized_data_dicts[outcome + "_normalized"]
+            ),
+            normalized_data_dicts[outcome + "_normalized"].index,
+        )
+        score_diff_clipped_mlp_drive_preds_matrix = pd.DataFrame(
+            np.zeros((len(fourth_down_data), len(score_diff_change_list_clipped))),
+            index=fourth_down_data.index,
+        )
+        for column in score_diff_clipped_mlp_drive_preds_matrix.columns:
+            score_diff_clipped_mlp_drive_preds_matrix[column] = (
+                score_diff_change_list_clipped[column]
+                + eval(outcome)["current_score_diff"]
+            )
+        win_prob_dict[outcome] = pd.DataFrame()
+        win_prob_dict[outcome]["xhome_win_mlp_search_clipped_mlp_drive_preds"] = np.sum(
+            predictions_dicts[outcome].T[
+                score_diff_clipped_mlp_drive_preds_matrix.T > 0
+            ],
+            axis=0,
+        )
+        win_prob_dict[outcome]["xovertime_mlp_search_clipped_mlp_drive_preds"] = np.sum(
+            predictions_dicts[outcome].T[
+                score_diff_clipped_mlp_drive_preds_matrix.T == 0
+            ],
+            axis=0,
+        )
+        win_prob_dict[outcome]["xaway_win_mlp_search_clipped_mlp_drive_preds"] = np.sum(
+            predictions_dicts[outcome].T[
+                score_diff_clipped_mlp_drive_preds_matrix.T < 0
+            ],
+            axis=0,
+        )
+    outcome_list = []
+    for outcome in [
+        "fourth_down_go_for_it_success_data",
+        "fourth_down_go_for_it_fail_data",
+        "fourth_down_field_goal_success_data",
+        "fourth_down_field_goal_fail_data",
+        "fourth_down_punt_data",
+    ]:
+        fourth_down_data[
+            [outcome + x for x in ["_home_win", "_overtime", "_away_win"]]
+        ] = win_prob_dict[outcome]
+        outcome_list = outcome_list + [
+            outcome + x for x in ["_home_win", "_overtime", "_away_win"]
+        ]
+    mask_model = (
+        (df.continuation == 0)
+        & (df.down != 0)
+        & (df[input_names_play_and_drive_preds].notna().all(axis=1))
+        & (df["from_scrimmage"] == 1)
+        & (df["overtime"] == 0)
+    )
+    anchor_df_mlp_plays = df[
+        mask_model
+        & (df["season"] < 2020)
+        & (df.play_counts == 1)
+        & (df.event_id.isin(scrimmage_plays_we_want))
+    ]
+    fourth_down_data_normalized = normalize_df(
+        fourth_down_data[input_names_play_and_drive_preds], anchor_df_mlp_plays
+    )
+    fourth_down_data[
+        search_mlp_play_class_names
+    ] = search_mlp_play_outcome_normalized_new_hpo.predict_proba(
+        fourth_down_data_normalized
+    )
+
+    fourth_down_success_rates = pd.DataFrame()
+    fourth_down_success_rates["go_for_it"] = np.sum(
+        fourth_down_data[
+            ["search_mlp_play_first_down", "search_mlp_play_offensive_touchdown"]
+        ],
+        axis=1,
+    ) / np.sum(
+        fourth_down_data[
+            [
+                "search_mlp_play_first_down",
+                "search_mlp_play_offensive_touchdown",
+                "search_mlp_play_turnover",
+                "search_mlp_play_none",
+            ]
+        ],
+        axis=1,
+    )
+    fourth_down_data["offense_point_diff"] = np.where(
+        fourth_down_data["home_team_has_ball"] == 1,
+        fourth_down_data["current_score_diff"],
+        -fourth_down_data["current_score_diff"],
+    )
+    fourth_down_data["yd_from_goal_sq"] = fourth_down_data["yd_from_goal"] ** 2
+    fourth_down_data["yd_from_goal_cu"] = fourth_down_data["yd_from_goal"] ** 3
+    field_goal_data = fourth_down_data[
+        (fourth_down_data["field_goal_attempt"] == 1)
+        & (fourth_down_data["play_counts"] == 1)
+    ].reset_index(drop=True)
+    field_goal_prediction_inputs = normalize_df(
+        fourth_down_data[logit_field_goal_made.feature_names_in_],
+        field_goal_data[field_goal_data["season"] < 2020],
+    ).dropna()
+    fourth_down_data[
+        ["xfield_goal_missed", "xfield_goal_made"]
+    ] = logit_field_goal_made.predict_proba(field_goal_prediction_inputs)
+
+    fourth_down_success_rates["field_goal"] = fourth_down_data["xfield_goal_made"]
+    fourth_down_data[
+        ["go_for_it_success", "field_goal_success"]
+    ] = fourth_down_success_rates[["go_for_it", "field_goal"]]
+    fourth_down_data["punt_success"] = np.nan
+    outcome_list_team_with_ball = [
+        "fourth_down_go_for_it_success_data_win",
+        "fourth_down_go_for_it_fail_data_win",
+        "fourth_down_field_goal_success_data_win",
+        "fourth_down_field_goal_fail_data_win",
+        "fourth_down_punt_data_win",
+    ]
+    outcome_list_home = [
+        "fourth_down_go_for_it_success_data_home_win",
+        "fourth_down_go_for_it_fail_data_home_win",
+        "fourth_down_field_goal_success_data_home_win",
+        "fourth_down_field_goal_fail_data_home_win",
+        "fourth_down_punt_data_home_win",
+    ]
+    outcome_list_away = [
+        "fourth_down_go_for_it_success_data_away_win",
+        "fourth_down_go_for_it_fail_data_away_win",
+        "fourth_down_field_goal_success_data_away_win",
+        "fourth_down_field_goal_fail_data_away_win",
+        "fourth_down_punt_data_away_win",
+    ]
+    outcome_list_overtime = [
+        "fourth_down_go_for_it_success_data_overtime",
+        "fourth_down_go_for_it_fail_data_overtime",
+        "fourth_down_field_goal_success_data_overtime",
+        "fourth_down_field_goal_fail_data_overtime",
+        "fourth_down_punt_data_overtime",
+    ]
+    for x in range(len(outcome_list_team_with_ball)):
+        fourth_down_data[outcome_list_team_with_ball[x]] = np.where(
+            fourth_down_data["home_team_has_ball"] == 1,
+            fourth_down_data[outcome_list_home[x]],
+            fourth_down_data[outcome_list_away[x]],
+        ) + (0.5 * fourth_down_data[outcome_list_overtime[x]])
+    fourth_down_data["x_win_go_for_it"] = fourth_down_data[
+        "fourth_down_go_for_it_success_data_win"
+    ] * fourth_down_success_rates["go_for_it"] + fourth_down_data[
+        "fourth_down_go_for_it_fail_data_win"
+    ] * (
+        1 - fourth_down_success_rates["go_for_it"]
+    )
+    fourth_down_data["x_win_field_goal"] = fourth_down_data[
+        "fourth_down_field_goal_success_data_win"
+    ] * fourth_down_success_rates["field_goal"] + fourth_down_data[
+        "fourth_down_field_goal_fail_data_win"
+    ] * (
+        1 - fourth_down_success_rates["field_goal"]
+    )
+    fourth_down_data["x_win_punt"] = fourth_down_data["fourth_down_punt_data_win"]
+
+    return fourth_down_data
 
 
 @st.cache
 def load_predictions(cache=True):
-    events_df = get_event_data(cache=cache)
+    scrimmage_plays_we_want = [1, 2, 3, 4, 7, 9, 14, 17, 18, 35]
+    # search_mlp_play_outcome = pickle.load(open("models/search_mlp_play_outcome.p", "rb"))
+    search_rf_play_outcome = pickle.load(open("models/search_rf_play_outcome.p", "rb"))
+    search_rf_drive_outcome = pickle.load(
+        open("models/search_rf_drive_outcome.p", "rb")
+    )
+    search_mlp_play_outcome_normalized_new_hpo = pickle.load(
+        open("models/search_mlp_play_outcome_normalized_new_hpo.p", "rb")
+    )
+    search_mlp_score_diff_clipped_rf_drive_preds = pickle.load(
+        open("models/search_mlp_score_diff_clipped_rf_drive_preds.p", "rb")
+    )
+    search_mlp_total_score = pickle.load(open("models/search_mlp_total_score.p", "rb"))
+    input_names_play_and_drive_preds = search_rf_play_outcome.feature_names_in_
+    input_names_score_diff_pred = (
+        search_mlp_score_diff_clipped_rf_drive_preds.feature_names_in_
+    )
+    search_rf_play_class_names = [
+        "search_rf_play_" + x for x in search_rf_play_outcome.classes_
+    ]
+    search_mlp_play_class_names = [
+        "search_mlp_play_" + x for x in search_rf_play_outcome.classes_
+    ]
+    search_rf_drive_class_names = [
+        "search_rf_drive_" + x for x in search_rf_drive_outcome.classes_
+    ]
+
+    search_rf_play_class_names_home = [x + "_home" for x in search_rf_play_class_names]
+    search_rf_play_class_names_away = [x + "_away" for x in search_rf_play_class_names]
+    search_rf_drive_class_names_home = [
+        x + "_home" for x in search_rf_drive_class_names
+    ]
+    search_rf_drive_class_names_away = [
+        x + "_away" for x in search_rf_drive_class_names
+    ]
+    event_df = get_event_data(cache=cache)
     game_df = get_game_data(cache=cache)
-    # print(game_df.head())
     prior_df = pd.read_csv(os.path.join(data_dir, "game_priors.csv"))
     odds_df = pd.read_parquet(os.path.join(data_dir, "odds_data.parquet"))
     odds_df = odds_df.drop_duplicates("game_code")
-    full_df = (
-        (
-            events_df.merge(prior_df, on="game_code")
-            .merge(game_df, on="game_code", suffixes=["", "_y"])
-            .merge(odds_df, on="game_code", how="left", suffixes=["", "_y"])
-            .pipe(add_timeouts_remaining)
+    event_df[["cur_spread", "cur_over_under"]] = event_df.merge(
+        odds_df, how="left", on="game_code"
+    )[["cur_spread", "cur_over_under"]].fillna(
+        {
+            "cur_spread": np.mean(odds_df["cur_spread"]),
+            "cur_over_under": np.mean(odds_df["cur_over_under"]),
+        }
+    )
+    event_df = event_df.pipe(add_timeouts_remaining)
+    # event_df["end_of_regulation_score_total_diff"] =
+
+    model_df = deepcopy(event_df)
+    # print(event_df.columns)
+    model_df["time_left_in_half"] = event_df["time_left_in_game"] - (
+        (2 - event_df["half"]) * 1800
+    )
+    model_df["from_scrimmage"] = np.where(
+        event_df["event_id"].isin([22, 47, 52, 53, 54, 55, 56]),
+        0,
+        event_df["from_scrimmage"],
+    )
+    model_df["point_after_play"] = np.where(
+        model_df["point_after_kick"] + model_df["two_point_attempt"] == 1, 1, 0
+    )
+    model_df["down"] = np.where(model_df["from_scrimmage"] == 0, 0, event_df["down"])
+    model_df["ytg"] = np.where(model_df["from_scrimmage"] == 0, -1, event_df["ytg"])
+    model_df["yd_from_goal"] = np.where(
+        model_df["from_scrimmage"] == 0, -1, event_df["yd_from_goal"]
+    )
+    model_df["home_team_has_ball"] = np.where(
+        event_df["event_id"].isin([5]),
+        1 - event_df["home_team_has_ball"],
+        event_df["home_team_has_ball"],
+    )
+    mask_model_predict = (
+        (model_df.continuation == 0)
+        & (model_df.down != 0)
+        & (model_df[input_names_play_and_drive_preds].notna().all(axis=1))
+        & (model_df["from_scrimmage"] == 1)
+        & (model_df["overtime"] == 0)
+    )
+    model_df = model_df.sort_values(["game_date", "nevent"], ascending=[False, True])
+
+    # model_df = model_df[model_df["game_code"]==2337728]
+    model_df["game_info"] = (
+        model_df["home_team"]
+        + " "
+        + model_df["away_team"]
+        + " "
+        + model_df["game_date"].apply(lambda x: x.strftime("%Y-%m-%d"))
+        + " "
+        + model_df["season"].apply(str)
+        + " ("
+        + (model_df["game_code"]).apply(str)
+        + ")"
+    )
+    model_df["absolute_score_diff"] = abs(
+        model_df["home_start_score"] - model_df["away_start_score"]
+    )
+
+    model_df["minutes"] = (model_df["play_start_time"].fillna(0) // 60).apply(int)
+    model_df["seconds"] = (
+        model_df["play_start_time"].fillna(0)
+        - (model_df["play_start_time"].fillna(0) // 60) * 60
+    ).apply(int)
+    model_df["seconds_str"] = np.where(
+        model_df["seconds"] >= 10,
+        model_df["seconds"].apply(str),
+        "0" + model_df["seconds"].apply(str),
+    )
+    model_df["time_str"] = (
+        model_df["minutes"].apply(str) + ":" + model_df["seconds_str"]
+    )
+
+    model_df["team_score_desc"] = np.where(
+        model_df["home_team_has_ball"] == 1,
+        np.where(
+            model_df["home_start_score"] > model_df["away_start_score"],
+            "Up by " + model_df["absolute_score_diff"].apply(str),
+            np.where(
+                model_df["home_start_score"] < model_df["away_start_score"],
+                "Down by " + model_df["absolute_score_diff"].apply(str),
+                "Tied",
+            ),
+        ),
+        np.where(
+            model_df["home_start_score"] < model_df["away_start_score"],
+            "Up by " + model_df["absolute_score_diff"].apply(str),
+            np.where(
+                model_df["home_start_score"] > model_df["away_start_score"],
+                "Down by " + model_df["absolute_score_diff"].apply(str),
+                "Tied",
+            ),
+        ),
+    )
+    model_df["play_description"] = (
+        ordinaltg(model_df["quarter"])
+        + " Qtr "
+        + model_df["minutes"].apply(str)
+        + ":"
+        + model_df["seconds_str"]
+        + ", "
+        + model_df["team_score_desc"]
+        + ", "
+        + ordinaltg(model_df["down"]).apply(str)
+        + " & "
+        + model_df["ytg"].apply(str)
+        + ", "
+        + model_df["yd_from_goal"].apply(str)
+        + " Yards From Goal, "
+        + np.where(
+            model_df["home_team_has_ball"] == 1,
+            model_df["home_team_abbrev"],
+            model_df["away_team_abbrev"],
         )
-        .sort_values(["game_date", "nevent"], ascending=[False, True])
-        .reset_index()
+        + " has ball, "
+        + "Off TO: "
+        + np.where(
+            model_df["home_team_has_ball"] == 1,
+            model_df["home_timeouts_remaining"],
+            model_df["away_timeouts_remaining"],
+        ).astype(str)
+        + ", Def TO: "
+        + np.where(
+            model_df["home_team_has_ball"] == 0,
+            model_df["home_timeouts_remaining"],
+            model_df["away_timeouts_remaining"],
+        ).astype(str)
+        + " ("
+        + model_df["nevent"].apply(str)
+        + ")"
     )
-    full_df = full_df[(full_df["season"] == 2021)][1:1000]
 
-    clf = pickle.load(open(os.path.join("models/game_score_new_4.sav"), "rb"))
-    rf = pickle.load(
-        open(
-            os.path.join("models/game_score_random_forest_100_10_vegas_spread.p"), "rb"
+    # print(model_df.head())
+    # fourth_downs_only = model_df.loc[model_df.down == 4]
+    # breakpoint()
+    model_df[search_rf_play_class_names] = pd.DataFrame(
+        search_rf_play_outcome.predict_proba(
+            model_df[mask_model_predict][input_names_play_and_drive_preds]
+        ),
+        index=model_df[mask_model_predict].index,
+    )
+    model_df[search_rf_play_class_names] = model_df[search_rf_play_class_names].fillna(
+        0
+    )
+    model_df[search_rf_drive_class_names] = pd.DataFrame(
+        search_rf_drive_outcome.predict_proba(
+            model_df[mask_model_predict][input_names_play_and_drive_preds]
+        ),
+        index=model_df[mask_model_predict].index,
+    )
+    model_df[search_rf_drive_class_names] = model_df[
+        search_rf_drive_class_names
+    ].fillna(0)
+
+    model_df[search_rf_play_class_names_home] = model_df[
+        search_rf_play_class_names
+    ].where(model_df.home_team_has_ball == 1, 0)
+    model_df[search_rf_play_class_names_away] = model_df[
+        search_rf_play_class_names
+    ].where(model_df.home_team_has_ball == 0, 0)
+    model_df[search_rf_drive_class_names_home] = model_df[
+        search_rf_drive_class_names
+    ].where(model_df.home_team_has_ball == 1, 0)
+    model_df[search_rf_drive_class_names_away] = model_df[
+        search_rf_drive_class_names
+    ].where(model_df.home_team_has_ball == 0, 0)
+    mask_model_score_diff = (
+        (model_df.continuation == 0)
+        & (model_df[input_names_score_diff_pred].notna().all(axis=1))
+        & ~(model_df.event_id.isin([12, 57, 58, 13]))
+        & (model_df["overtime"] == 0)
+    )
+    normalized_score_pred_df = normalize_df(
+        model_df[mask_model_score_diff][input_names_score_diff_pred],
+        model_df[mask_model_score_diff & (model_df.season < 2020)][
+            input_names_score_diff_pred
+        ],
+    )
+    # st.dataframe(normalized_score_pred_df)
+    mlp_search_score_diff_clipped_rf_drive_preds_preds = pd.DataFrame(
+        search_mlp_score_diff_clipped_rf_drive_preds.predict_proba(
+            normalized_score_pred_df.values
+        ),
+        index=model_df[mask_model_score_diff].index,
+    )
+    score_diff_clipped_rf_drive_preds_matrix = pd.DataFrame(
+        np.zeros(mlp_search_score_diff_clipped_rf_drive_preds_preds.shape),
+        index=mlp_search_score_diff_clipped_rf_drive_preds_preds.index,
+    )
+    model_df["end_of_regulation_score_diff_change_clipped"] = np.clip(
+        model_df["end_of_regulation_score_diff_change"], -35, 35
+    )
+    score_diff_change_list_clipped = list(
+        model_df["end_of_regulation_score_diff_change_clipped"]
+        .drop_duplicates()
+        .sort_values()
+    )
+    for column in score_diff_clipped_rf_drive_preds_matrix.columns:
+        score_diff_clipped_rf_drive_preds_matrix[column] = (
+            score_diff_change_list_clipped[column] + model_df["current_score_diff"]
         )
-    )
-    rf.verbose = 0
-    input_names_mlp = [
-        "prior_home",
-        "prior_away",
-        "home_team_has_ball",
-        "home_start_score",
-        "away_start_score",
-        "quarter",
-        "overtime",
-        "play_start_time",
-        "yd_from_goal",
-        "from_scrimmage",
-        "kick_off",
-        "punt",
-        "point_after_kick",
-        "two_point_attempt",
-        "field_goal_attempt",
-        "down",
-        "ytg",
-        "home_timeouts_remaining",
-        "away_timeouts_remaining",
-    ]
-    input_names_rf = rf.feature_names_in_.tolist()
 
-    full_df = full_df[full_df[input_names_mlp].notna().all(axis=1)]
-    full_df = full_df.pipe(add_game_info).pipe(add_play_description)
-    full_df = full_df.sort_values(["game_date", "nevent"], ascending=[False, True])
-    # print(full_df.head())
-    # fourth_downs_only = full_df.loc[full_df.down == 4]
-    # breakpoint()
-    example_input = full_df
-    example_running_score = example_input[
-        ["home_start_score", "away_start_score"]
-    ].values
-    example_input_go_for_it = deepcopy(example_input[input_names_mlp])
-    example_input_go_for_it_rf = deepcopy(example_input[input_names_rf])
-    example_input_punt = deepcopy(example_input[input_names_mlp])
-    example_input_punt_rf = deepcopy(example_input[input_names_rf])
-    example_input_field_goal = deepcopy(example_input[input_names_mlp])
-    example_input_field_goal_rf = deepcopy(example_input[input_names_rf])
-    # print(example_input_go_for_it)
-    example_input_go_for_it["punt"] = 0
-    example_input_go_for_it["field_goal_attempt"] = 0
-    # print(example_input_go_for_it)
-    example_input_punt["punt"] = 1
-    example_input_punt["field_goal_attempt"] = 0
-    example_input_field_goal["punt"] = 0
-    example_input_field_goal["field_goal_attempt"] = 1
-    # print(example_input_go_for_it)
-    example_input_go_for_it_rf["punt"] = 0
-    example_input_go_for_it_rf["field_goal_attempt"] = 0
-    # print(example_input_go_for_it)
-    example_input_punt_rf["punt"] = 1
-    example_input_punt_rf["field_goal_attempt"] = 0
-    example_input_field_goal_rf["punt"] = 0
-    example_input_field_goal_rf["field_goal_attempt"] = 1
-    example_output_go_for_it = get_model_outputs(
-        clf, example_input_go_for_it, example_running_score
+    model_df["xhome_win_mlp_search_clipped_rf_drive_preds"] = np.sum(
+        mlp_search_score_diff_clipped_rf_drive_preds_preds.T[
+            score_diff_clipped_rf_drive_preds_matrix.T > 0
+        ],
+        axis=0,
     )
-    example_output_punt = get_model_outputs(
-        clf, example_input_punt, example_running_score
+    model_df["xovertime_mlp_search_clipped_rf_drive_preds"] = np.sum(
+        mlp_search_score_diff_clipped_rf_drive_preds_preds.T[
+            score_diff_clipped_rf_drive_preds_matrix.T == 0
+        ],
+        axis=0,
     )
-    example_output_field_goal = get_model_outputs(
-        clf, example_input_field_goal, example_running_score
+    model_df["xaway_win_mlp_search_clipped_rf_drive_preds"] = np.sum(
+        mlp_search_score_diff_clipped_rf_drive_preds_preds.T[
+            score_diff_clipped_rf_drive_preds_matrix.T < 0
+        ],
+        axis=0,
     )
-    example_output_go_for_it_rf = get_model_outputs(
-        rf, example_input_go_for_it_rf, example_running_score
+    model_df[
+        "xend_of_regulation_score_diff_mlp_search_clipped_rf_drive_preds"
+    ] = np.sum(
+        score_diff_clipped_rf_drive_preds_matrix
+        * mlp_search_score_diff_clipped_rf_drive_preds_preds,
+        axis=1,
     )
-    example_output_punt_rf = get_model_outputs(
-        rf, example_input_punt_rf, example_running_score
-    )
-    example_output_field_goal_rf = get_model_outputs(
-        rf, example_input_field_goal_rf, example_running_score
-    )
-    example_output_original = get_model_outputs(
-        clf, example_input[input_names_mlp], example_running_score
-    )
-    example_output_original_rf = get_model_outputs(
-        rf, example_input[input_names_rf], example_running_score
-    )
-    # breakpoint()
-    example_input[
-        [
-            "xhome_win_mlp",
-            "xdraw_mlp",
-            "xaway_win_mlp",
-        ]
-    ] = pd.DataFrame(example_output_original["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_rf",
-            "xdraw_rf",
-            "xaway_win_rf",
-        ]
-    ] = pd.DataFrame(example_output_original_rf["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_go_for_it_mlp",
-            "xdraw_go_for_it_mlp",
-            "xaway_win_go_for_it_mlp",
-        ]
-    ] = pd.DataFrame(example_output_go_for_it["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_punt_mlp",
-            "xdraw_punt_mlp",
-            "xaway_win_punt_mlp",
-        ]
-    ] = pd.DataFrame(example_output_punt["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_field_goal_mlp",
-            "xdraw_field_goal_mlp",
-            "xaway_win_field_goal_mlp",
-        ]
-    ] = pd.DataFrame(example_output_field_goal["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_go_for_it_rf",
-            "xdraw_go_for_it_rf",
-            "xaway_win_go_for_it_rf",
-        ]
-    ] = pd.DataFrame(example_output_go_for_it_rf["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_punt_rf",
-            "xdraw_punt_rf",
-            "xaway_win_punt_rf",
-        ]
-    ] = pd.DataFrame(example_output_punt_rf["ft_outcome"])
-    example_input[
-        [
-            "xhome_win_field_goal_rf",
-            "xdraw_field_goal_rf",
-            "xaway_win_field_goal_rf",
-        ]
-    ] = pd.DataFrame(example_output_field_goal_rf["ft_outcome"])
-
-    example_input[home_score_cols_go_for_it] = pd.DataFrame(
-        example_output_go_for_it["home_score"]
-    )
-    example_input[away_score_cols_go_for_it] = pd.DataFrame(
-        example_output_go_for_it["away_score"]
-    )
-    example_input[home_score_cols_go_for_it_rf] = pd.DataFrame(
-        example_output_go_for_it_rf["home_score"]
-    )
-    example_input[away_score_cols_go_for_it_rf] = pd.DataFrame(
-        example_output_go_for_it_rf["away_score"]
-    )
-    example_input[home_score_cols_punt] = pd.DataFrame(
-        example_output_punt["home_score"]
-    )
-    example_input[away_score_cols_punt] = pd.DataFrame(
-        example_output_punt["away_score"]
-    )
-    example_input[home_score_cols_punt_rf] = pd.DataFrame(
-        example_output_punt_rf["home_score"]
-    )
-    example_input[away_score_cols_punt_rf] = pd.DataFrame(
-        example_output_punt_rf["away_score"]
-    )
-    example_input[home_score_cols_field_goal] = pd.DataFrame(
-        example_output_field_goal["home_score"]
-    )
-    example_input[away_score_cols_field_goal] = pd.DataFrame(
-        example_output_field_goal["away_score"]
-    )
-    example_input[home_score_cols_field_goal_rf] = pd.DataFrame(
-        example_output_field_goal_rf["home_score"]
-    )
-    example_input[away_score_cols_field_goal_rf] = pd.DataFrame(
-        example_output_field_goal_rf["away_score"]
-    )
-
-    return (
-        full_df,
-        example_input,
-        example_output_go_for_it,
-        example_output_punt,
-        example_output_field_goal,
-        example_output_go_for_it_rf,
-        example_output_punt_rf,
-        example_output_field_goal_rf,
-        input_names_mlp,
-        input_names_rf,
-    )
+    fourth_down_data = get_fourth_down_predictions(model_df)
+    # st.dataframe(model_df.head(50))
+    return model_df, fourth_down_data
 
 
-(
-    full_df,
-    example_input,
-    example_output_go_for_it,
-    example_output_punt,
-    example_output_field_goal,
-    example_output_go_for_it_rf,
-    example_output_punt_rf,
-    example_output_field_goal_rf,
-    input_names_mlp,
-    input_names_rf,
-) = load_predictions()
-full_df.to_csv("full_df.csv")
-if chart_select_box == "4th Down Bot":
-    games = full_df["game_info"].drop_duplicates()
+model_df, fourth_down_data = load_predictions()
+
+# model_df.to_csv("model_df.csv")
+if chart_select_box == "4th Down Bot Situation":
+    games = fourth_down_data["game_info"].drop_duplicates()
     game_selection = st.selectbox("Pick a Game", games)
-    plays = example_input[
-        (example_input["game_info"] == game_selection) & (example_input["down"] == 4)
-    ]["play_description"]
-    play_selection = st.selectbox("Play", plays)
-    play_example = example_input[
-        (example_input["game_info"] == game_selection)
-        & (example_input["play_description"] == play_selection)
+    plays = fourth_down_data[fourth_down_data["game_info"] == game_selection][
+        "play_description"
     ]
-    if play_example["home_team_has_ball"].values == 1:
-        example_output = play_example[
-            [
-                "xhome_win_go_for_it_mlp",
-                "xhome_win_punt_mlp",
-                "xhome_win_field_goal_mlp",
-            ]
-        ].transpose()
-        print_scores = pd.concat(
-            [
-                pd.DataFrame(
-                    play_example[home_score_cols_go_for_it].values, index=["go_for_it"]
-                ),
-                pd.DataFrame(play_example[home_score_cols_punt].values, index=["punt"]),
-                pd.DataFrame(
-                    play_example[home_score_cols_field_goal].values,
-                    index=["field_goal"],
-                ),
-            ],
-        )
-        print_scores_rf = pd.concat(
-            [
-                pd.DataFrame(
-                    play_example[home_score_cols_go_for_it_rf].values,
-                    index=["go_for_it"],
-                ),
-                pd.DataFrame(
-                    play_example[home_score_cols_punt_rf].values, index=["punt"]
-                ),
-                pd.DataFrame(
-                    play_example[home_score_cols_field_goal_rf].values,
-                    index=["field_goal"],
-                ),
-            ],
-        )
-        # print_scores.rename(index=["go_for_it", "punt", "field_goal"])
+    play_selection = st.selectbox("Pick a Play", plays)
 
-        example_output_rf = play_example[
-            [
-                "xhome_win_go_for_it_rf",
-                "xhome_win_punt_rf",
-                "xhome_win_field_goal_rf",
-            ]
-        ].transpose()
-    else:
-        example_output = play_example[
-            [
-                "xaway_win_go_for_it_mlp",
-                "xaway_win_punt_mlp",
-                "xaway_win_field_goal_mlp",
-            ]
-        ].transpose()
-
-        example_output_rf = play_example[
-            [
-                "xaway_win_go_for_it_rf",
-                "xaway_win_punt_rf",
-                "xaway_win_field_goal_rf",
-            ]
-        ].transpose()
-        print_scores = pd.concat(
-            [
-                pd.DataFrame(
-                    play_example[away_score_cols_go_for_it].values, index=["go_for_it"]
-                ),
-                pd.DataFrame(play_example[away_score_cols_punt].values, index=["punt"]),
-                pd.DataFrame(
-                    play_example[away_score_cols_field_goal].values,
-                    index=["field_goal"],
-                ),
-            ],
-        )
-        print_scores_rf = pd.concat(
-            [
-                pd.DataFrame(
-                    play_example[away_score_cols_go_for_it_rf].values,
-                    index=["go_for_it"],
-                ),
-                pd.DataFrame(
-                    play_example[away_score_cols_punt_rf].values, index=["punt"]
-                ),
-                pd.DataFrame(
-                    play_example[away_score_cols_field_goal_rf].values,
-                    index=["field_goal"],
-                ),
-            ],
-        )
-
-    MODEL_TYPE_SELECT = ["MLP", "RF"]
-    model_type_selection = st.selectbox("Model", MODEL_TYPE_SELECT)
-    print(play_example[input_names_rf].values.tolist())
-    print(play_example[input_names_rf])
-    if model_type_selection == "MLP":
-        # print(print_scores)
-        st.dataframe(
-            example_output,
-            width=10000,
-        )
-        st.dataframe(
-            print_scores.transpose(),
-            width=10000,
-        )
-
-        # st.dataframe(print_scores)
-        # st.dataframe(play_example["away_score"])
-
-    elif model_type_selection == "RF":
-        st.dataframe(
-            example_output_rf,
-            width=10000,
-        )
-        st.dataframe(
-            print_scores_rf.transpose(),
-            width=10000,
-        )
+    output_df = pd.DataFrame()
+    play_df = fourth_down_data.loc[fourth_down_data["play_description"]== play_selection]
+    print(play_df["event_name"].values[0], "for", int(play_df["yards_gained"].values[0]), "yards")
+    print(abs(play_df["cur_spread"].values[0]), "Point", np.where((play_df["home_team_has_ball"] * 2 - 1) * play_df["cur_spread"].values[0]>0, "Underdogs", "favorites")[0])
+    output_df["Win %"] = play_df[["x_win_go_for_it", "x_win_field_goal", "x_win_punt"]].values[0].round(3) * 100
+    output_df["Success %"] = play_df[["go_for_it_success", "field_goal_success", "punt_success"]].values[0].round(3) * 100
+    output_df.loc[2] = np.where(play_df["yd_from_goal"]<=30, np.nan, output_df.loc[2])
+    output_df = output_df.sort_values("Win %", ascending=False)
+    conditional_df = pd.DataFrame()
+    conditional_df["Fail"] = play_df[["fourth_down_go_for_it_fail_data_win", "fourth_down_field_goal_fail_data_win", "punt_success"]].values[0].round(3) * 100
+    conditional_df["Success"] = play_df[["fourth_down_go_for_it_success_data_win", "fourth_down_field_goal_success_data_win", "punt_success"]].values[0].round(3) * 100
+    # output_df.loc["Field Goal Attempt"] = np.where(play_df["yd_from_goal"]>=55, None, output_df.loc["Field Goal Attempt"])
+    output_df = pd.concat([output_df.T, conditional_df.T], keys=["", "Win % if"])
+    output_df = output_df.rename(columns={0: "Go For it", 1: "Field Goal Attempt", 2: "Punt"})
+    st.dataframe(output_df.T)
 
 elif chart_select_box == "Games":
-    games = full_df["game_info"].drop_duplicates()
+    games = model_df["game_info"].drop_duplicates()
     game_selection = st.selectbox("Pick a Game", games)
-    game_df = example_input[example_input["game_info"] == game_selection]
-    MODEL_TYPE_SELECT = ["MLP", "RF"]
-    model_type_selection = st.selectbox("Model", MODEL_TYPE_SELECT)
+    game_df = model_df[
+        (model_df["game_info"] == game_selection)
+        & (
+            model_df["event_id"].isin(
+                [1, 2, 3, 4, 5, 7, 9, 14, 17, 18, 22, 35, 41, 47, 52, 53, 54, 55, 56]
+            )
+        )
+        & (model_df["continuation"] == 0)
+        & (model_df["overtime"] == 0)
+    ]
+    # MODEL_TYPE_SELECT = ["MLP", "RF"]
+    game_df["nevent"] = range(len(game_df))
+    # model_type_selection = st.selectbox("Model", MODEL_TYPE_SELECT)
     x = "nevent"
     hover_values = [
         "home_team_has_ball",
@@ -565,45 +1165,50 @@ elif chart_select_box == "Games":
         "away_timeouts_remaining",
     ]
     v = pd.DataFrame(game_df[["quarter", "nevent"]]).reset_index(drop=True)
-    print(v)
+    # print(v)
     # breakpoint()
     mask_ticks = v["quarter"][1:].reset_index(drop=True) == v["quarter"][
         :-1
     ].reset_index(drop=True)
-    print(mask_ticks)
+    # print(mask_ticks)
     # breakpoint()
-    ticks_idx = [min(v["nevent"])] + list(v[:-1][~mask_ticks]["nevent"] + 1)
+    ticks_idx = [min(v["nevent"])] + list(v[:-1][~mask_ticks]["nevent"])
     if len(ticks_idx) == 4:
         ticks_values = [1, 2, 3, 4]
     else:
         ticks_values = [1, 2, 3, 4, "OT"]
 
-    print("ticks_values: ", ticks_values)
-    print("ticks_idx: ", ticks_idx)
+    # print("ticks_values: ", ticks_values)
+    # print("ticks_idx: ", ticks_idx)
 
     fig = go.Figure()
-    game_df["xhome_win_mlp_no_tie"] = game_df["xhome_win_mlp"] / (
-        game_df["xhome_win_mlp"] + game_df["xaway_win_mlp"]
-    )
-    game_df["xhome_win_rf_no_tie"] = game_df["xhome_win_rf"] / (
-        game_df["xhome_win_rf"] + game_df["xaway_win_rf"]
-    )
-    game_df["xaway_win_mlp_no_tie"] = 1 - game_df["xhome_win_mlp_no_tie"]
-    game_df["xaway_win_rf_no_tie"] = 1 - game_df["xhome_win_rf_no_tie"]
-    if model_type_selection == "MLP":
-        if game_df["game_type_id"].tolist()[0] == 1:
-            y = ["xhome_win_mlp", "xdraw_mlp", "xaway_win_mlp"]
-        else:
-            y = ["xhome_win_mlp_no_tie", "xaway_win_mlp_no_tie"]
-        # y = "xhome_win_mlp"
-    elif model_type_selection == "RF":
-        if game_df["game_type_id"].tolist()[0] == 1:
-            y = ["xhome_win_rf", "xdraw_rf", "xaway_win_rf"]
-        else:
-            y = ["xhome_win_rf_no_tie", "xaway_win_rf_no_tie"]
-        # y = "xhome_win_rf"
+    # game_df["xhome_win_mlp_no_tie"] = game_df["xhome_win_mlp"] / (
+    #     game_df["xhome_win_mlp"] + game_df["xaway_win_mlp"]
+    # )
+    # game_df["xhome_win_rf_no_tie"] = game_df["xhome_win_rf"] / (
+    #     game_df["xhome_win_rf"] + game_df["xaway_win_rf"]
+    # )
+    # game_df["xaway_win_mlp_no_tie"] = 1 - game_df["xhome_win_mlp_no_tie"]
+    # game_df["xaway_win_rf_no_tie"] = 1 - game_df["xhome_win_rf_no_tie"]
+    # if model_type_selection == "MLP":
+    #     if game_df["game_type_id"].tolist()[0] == 1:
+    #         y = ["xhome_win_mlp", "xdraw_mlp", "xaway_win_mlp"]
+    #     else:
+    #         y = ["xhome_win_mlp_no_tie", "xaway_win_mlp_no_tie"]
+    #     # y = "xhome_win_mlp"
+    # elif model_type_selection == "RF":
+    #     if game_df["game_type_id"].tolist()[0] == 1:
+    #         y = ["xhome_win_rf", "xdraw_rf", "xaway_win_rf"]
+    #     else:
+    #         y = ["xhome_win_rf_no_tie", "xaway_win_rf_no_tie"]
+    #     # y = "xhome_win_rf"
+    y = [
+        "xhome_win_mlp_search_clipped_rf_drive_preds",
+        "xovertime_mlp_search_clipped_rf_drive_preds",
+        "xaway_win_mlp_search_clipped_rf_drive_preds",
+    ]
     colors = ["khaki", "lightgray", "lightskyblue"]
-    print(pd.to_numeric(game_df["yards_gained"], errors="coerce"))
+    # print(pd.to_numeric(game_df["yards_gained"], errors="coerce"))
 
     game_df["yards_description"] = (
         game_df["event_name"]
@@ -629,8 +1234,19 @@ elif chart_select_box == "Games":
             ),
         )
     )
-    if game_df["game_type_id"].tolist()[0] == 1:
-        print(y)
+    if True:
+        fig.add_trace(
+            go.Scatter(
+                x=game_df["nevent"],
+                y=game_df[y[1]],
+                hovertext=game_df[hover_values],
+                stackgroup="one",
+                mode="lines",
+                line=dict(width=0.5, color=colors[1]),
+                name="overtime",
+            )
+        )
+        # print(y)
         fig.add_trace(
             go.Scatter(
                 x=game_df["nevent"],
@@ -643,33 +1259,6 @@ elif chart_select_box == "Games":
             )
         )
 
-    else:
-        fig.add_trace(
-            go.Scatter(
-                customdata=game_df[["event_name", "play_description"]],
-                stackgroup="one",
-                mode="lines",
-                hovertemplate="<br>".join(
-                    [
-                        "%{y}",
-                        "%{customdata[0]}",
-                        "%{customdata[1]}",
-                    ]
-                ),
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=game_df["nevent"],
-                y=game_df[y[1]],
-                hovertext=game_df[hover_values],
-                stackgroup="one",
-                mode="lines",
-                line=dict(width=0.5, color=colors[2]),
-                name=game_df["away_team_abbrev"].tolist()[0],
-            )
-        )
     # fig.add_trace(go.Scatter(text=game_df))
     # fig = px.area(
     #     game_df,
@@ -699,7 +1288,7 @@ elif chart_select_box == "Games":
         ),
         yaxis=dict(tick0=0, dtick=0.25, gridcolor="black", gridwidth=2),
     )
-    print(game_df.columns.tolist())
+    # print(game_df.columns.tolist())
     game_df["score_change"] = game_df["home_score_added"] + game_df["away_score_added"]
     game_df["score_str"] = (
         (game_df["away_score_added"] + game_df["away_start_score"]).apply(str)
@@ -716,6 +1305,14 @@ elif chart_select_box == "Games":
     score_away_value = game_df[game_df["away_score_added"] >= 3]["away_score_added"]
     score_away_str = np.where(score_away_value == 3, " FG", " TD")
     score_display_away = game_df[game_df["away_score_added"] >= 3]["score_str"].tolist()
+    mask_poss_change = (
+        (game_df["home_team_has_ball"].shift(-1) != game_df["home_team_has_ball"])
+        & (game_df["score_change"] == 0)
+        & (game_df["score_change"].shift(-1) == 0)
+    )
+    ball_change_idx = game_df[mask_poss_change]["nevent"].tolist()
+    ball_change_cause = game_df[mask_poss_change]["event_name"].tolist()
+    ball_change_y = (game_df[mask_poss_change][y[0]]).tolist()
     for x in range(len(scores_idx_home)):
         fig.add_annotation(
             x=scores_idx_home[x],
@@ -736,10 +1333,28 @@ elif chart_select_box == "Games":
             + score_display_away[x],
             showarrow=True,
         )
+    fig.add_trace(
+        go.Scatter(
+            x=ball_change_idx,
+            y=ball_change_y,
+            text=ball_change_cause,
+            mode="markers+text",
+            name="Possession Change",
+            textposition="top center",
+            marker=dict(color="blue"),
+        )
+    )
+    # for x in range(len(ball_change_idx)):
+    #     fig.add_annotation(
+    #         x=ball_change_idx[x],
+    #         y=ball_change_idx[x],
+    #         text=ball_change_cause[x],
+    #         showarrow=True,
+    #     )
 
     # # fig.add_annotation(hovertext=game_df["game_code"])
     # # print((game_df))
-    fig.update_xaxes(range=[0, len(game_df)])
+    fig.update_xaxes(range=[0, len(game_df) - 1])
     fig.update_yaxes(range=[0, 1])
     # # fig.update_annotations(hover_lable=game_df[hover_values])
     # fig.update_yaxes(range=[0, 1], row=1, col=1)
