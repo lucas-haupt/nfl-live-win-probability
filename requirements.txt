@@ -16,6 +16,6 @@ tqdm
 ConfigParser
 streamlit
 xgboost
-beepy
+# beepy
 pydot
 statsmodels
